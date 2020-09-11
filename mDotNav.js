@@ -42,9 +42,7 @@
     }
 
     const omEventTarget = new EventTarget();
-    const omEventBefore = new CustomEvent('onbeforeroutechange', {
-        detail: { transitionState: transitionState }
-    });
+
 
     m.nav = (function () {
 
@@ -105,7 +103,6 @@
         // m.nav.route.set
         //
         me.route.set = (path, params, options, anim) => {
-            omEventTarget.dispatchEvent(omEventBefore)
 
             transitionState.changeRoute = true
             transitionState.anim = anim
@@ -133,6 +130,11 @@
                     // ONMATCH
                     onmatch: (args, requestedPath, route) => {
                         //debugger
+                        const omEventBefore = new CustomEvent('onbeforeroutechange', {
+                            detail: {transitionState: transitionState, outroute: _peek()}
+                        });
+                        omEventTarget.dispatchEvent(omEventBefore)
+
                         transitionState.changeRoute = true
 
                         console.log('m.nav::onmatch', transitionState, routeKey, args, requestedPath, route)
@@ -146,6 +148,7 @@
                         }
 
                         transitionState.key = genKey()
+
                         let histState = pushOrPop(args, requestedPath, route)
                         if (mDotNavState.routeState === RouteStates.MOUNTED) {
                             mDotNavState.routeState = RouteStates.INITIAL_ROUTE
