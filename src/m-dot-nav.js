@@ -301,6 +301,7 @@ function toEnhancedRouteResolvers() {
 
                         currentTransitionState = pushOrPop(args, requestedPath, route)
                         currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
+                        currentTransitionState.context = {}
 
                         console.log('m.nav::onmatch()', currentTransitionState)
 
@@ -322,7 +323,11 @@ function toEnhancedRouteResolvers() {
                             Promise.resolve().then(() => {
                                 //console.log("m.nav::render()", "reset onMatchCalled")
                                 _navstate.onMatchCalled = false
+                                _navstate.anim = undefined
                             })
+                        }
+                        if(_navstate.anim) {
+                            currentTransitionState.anim = _navstate.anim
                         }
                         let _transitionState = currentTransitionState
 

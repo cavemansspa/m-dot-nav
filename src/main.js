@@ -33,11 +33,19 @@ const Layout = () => {
             ]
         },
 
+        oncreate: ({attrs}) => {
+            console.log('Layout::oncreate()', {attrs: attrs, _layoutState: _layoutState})
+
+            let {transitionState} = attrs
+            transitionState.context = _layoutState
+
+        },
         onupdate: ({attrs}) => {
 
             console.log('Layout::onupdate()', {attrs: attrs, _layoutState: _layoutState})
 
             let {transitionState} = attrs
+            transitionState.context = _layoutState
 
             if (transitionState.directionType === DirectionTypes.REDRAW) {
                 return
@@ -50,6 +58,12 @@ const Layout = () => {
                 let {outbound, inbound} = _layoutState
                 //console.log(outbound['section-main'].dom, inbound['section-main'].dom)
 
+                if (transitionState.anim) {
+                    transitionState.anim(transitionState)
+                    return
+                }
+
+                // default page transition
                 outbound['section-main'].dom.classList.add("ui", "transition", "fade", "out");
                 inbound['section-main'].dom.classList.add("ui", "transition", "fade", "in");
 
@@ -101,6 +115,31 @@ const Layout = () => {
     }
 }
 
+function slideUpIn(transitionState) {
+    let {outbound, inbound} = transitionState.context
+
+    let slideUpInClass = b({
+        transition: "transform 300ms",
+        transform: "translateY(100%)"
+    });
+    inbound['section-main'].dom.classList.add(slideUpInClass);
+    requestAnimationFrame(() => {
+        inbound['section-main'].dom.addEventListener(
+            "transitionend",
+            function te() {
+                inbound['section-main'].dom.classList.remove(slideUpInClass);
+                outbound['section-main'].resolver()
+                outbound['section-main'].dom.removeEventListener(
+                    "transitionend",
+                    te
+                );
+            }
+        );
+        inbound['section-main'].dom.style.transform = 'translateY(0)'
+    })
+
+}
+
 m.nav.init({
     root: document.body,
     defaultRoute: "/",
@@ -110,7 +149,7 @@ m.nav.init({
                 return [
                     m('div', {style: 'height:100%; background-color: aliceblue;'}, [
                         'hello world via m.nav.init(): ',
-                        m(m.route.Link, {href:"/foo?bar=1"}, '/foo')
+                        m(m.route.Link, {href: "/foo?bar=1"}, '/foo')
                     ])
                 ]
             }
@@ -122,6 +161,22 @@ m.nav.init({
                 ]
             }
         },
+        "/bar": {
+            view: () => {
+                return [
+                    m('div.ui.button', {
+                        onclick: (e) => {
+                            e.redraw = false
+                            m.nav.route.set('/foo', null, null, (ts) => {
+                                console.log(ts)
+                                slideUpIn(ts)
+                            })
+                        }
+                    }, 'Go'),
+                    m('div', {style: 'height:100%; background-color: aqua;'}, '/bar')
+                ]
+            }
+        }
     },
     layoutComponent: Layout,
     _layoutComponent: {
@@ -132,4 +187,3 @@ m.nav.init({
     }
 })
 
-//m.mount(document.body, {view: () => m('div', 'hello world')})
