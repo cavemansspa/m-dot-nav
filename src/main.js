@@ -122,22 +122,52 @@ function slideUpIn(transitionState) {
         transition: "transform 300ms",
         transform: "translateY(100%)"
     });
+
     inbound['section-main'].dom.classList.add(slideUpInClass);
+
     requestAnimationFrame(() => {
         inbound['section-main'].dom.addEventListener(
             "transitionend",
-            function te() {
-                inbound['section-main'].dom.classList.remove(slideUpInClass);
-                outbound['section-main'].resolver()
+            function te(e) {
+                if (e.propertyName === 'transform') {
+                    inbound['section-main'].dom.classList.remove(slideUpInClass);
+                    inbound['section-main'].dom.style.transform = ''
+                    inbound['section-main'].dom.removeEventListener(
+                        "transitionend",
+                        te
+                    );
+                    outbound['section-main'].resolver()
+                }
+            }
+        );
+
+        inbound['section-main'].dom.style.transform = 'translateY(0)'
+    })
+
+}
+
+function slideDownOut(transitionState) {
+    let {outbound, inbound} = transitionState.context
+
+    let slideDownOutClass = b({
+        transition: "transform 300ms",
+        transform: "translateY(100%)",
+        'z-index': 1
+    });
+
+    outbound['section-main'].dom.classList.add(slideDownOutClass);
+    outbound['section-main'].dom.addEventListener(
+        "transitionend",
+        function te(e) {
+            if (e.propertyName === 'transform') {
                 outbound['section-main'].dom.removeEventListener(
                     "transitionend",
                     te
                 );
+                outbound['section-main'].resolver()
             }
-        );
-        inbound['section-main'].dom.style.transform = 'translateY(0)'
-    })
-
+        }
+    );
 }
 
 m.nav.init({
@@ -145,17 +175,20 @@ m.nav.init({
     defaultRoute: "/",
     routes: {
         "/": {
-            view: () => {
+            view: ({attrs}) => {
+                console.log('/::view()', attrs)
                 return [
                     m('div', {style: 'height:100%; background-color: aliceblue;'}, [
                         'hello world via m.nav.init(): ',
-                        m(m.route.Link, {href: "/foo?bar=1"}, '/foo')
+                        m('div', m(m.route.Link, {href: "/foo?bar=1"}, '/foo')),
+                        m('div', m(m.route.Link, {href: "/bar"}, '/bar'))
                     ])
                 ]
             }
         },
         "/foo": {
-            view: () => {
+            view: ({attrs}) => {
+                console.log('/foo::view()', attrs)
                 return [
                     m('div', {style: 'height:100%; background-color: antiquewhite;'}, '/foo')
                 ]
@@ -167,13 +200,29 @@ m.nav.init({
                     m('div.ui.button', {
                         onclick: (e) => {
                             e.redraw = false
-                            m.nav.route.set('/foo', null, null, (ts) => {
+                            m.nav.route.set('/baz', null, {state: {moo: 'cow'}}, (ts) => {
                                 console.log(ts)
                                 slideUpIn(ts)
                             })
                         }
-                    }, 'Go'),
+                    }, 'Slide Up In'),
                     m('div', {style: 'height:100%; background-color: aqua;'}, '/bar')
+                ]
+            }
+        },
+        "/baz": {
+            view: () => {
+                return [
+                    m('div.ui.button', {
+                        onclick: (e) => {
+                            e.redraw = false
+                            m.nav.route.set('/bar', null, {state: {meow: 'cat'}}, (ts) => {
+                                console.log(ts)
+                                slideDownOut(ts)
+                            })
+                        }
+                    }, 'Slide Down Out'),
+                    m('div', {style: 'height:100%; background-color: aquamarine;'}, '/baz')
                 ]
             }
         }
