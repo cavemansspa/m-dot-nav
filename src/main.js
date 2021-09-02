@@ -117,33 +117,31 @@ const Layout = () => {
 
 function slideUpIn(transitionState) {
     let {outbound, inbound} = transitionState.context
+    //inbound["section-main"].dom.getBoundingClientRect()
 
-    let slideUpInClass = b({
-        transition: "transform 300ms",
+    let slideUpInClass1 = b({
         transform: "translateY(100%)"
     });
-
-    inbound['section-main'].dom.classList.add(slideUpInClass);
+    let slideUpInClass2 = b({
+        transition: "transform 300ms",
+        transform: "translateY(0)"
+    });
+    inbound["section-main"].dom.classList.add(slideUpInClass1)
 
     requestAnimationFrame(() => {
-        inbound['section-main'].dom.addEventListener(
-            "transitionend",
-            function te(e) {
-                if (e.propertyName === 'transform') {
-                    inbound['section-main'].dom.classList.remove(slideUpInClass);
-                    inbound['section-main'].dom.style.transform = ''
-                    inbound['section-main'].dom.removeEventListener(
-                        "transitionend",
-                        te
-                    );
-                    outbound['section-main'].resolver()
-                }
+        inbound["section-main"].dom.addEventListener("transitionend", function te(e) {
+            if (e.propertyName === "transform") {
+                inbound["section-main"].dom.classList.remove(slideUpInClass2)
+                inbound["section-main"].dom.style.transform = ""
+                inbound["section-main"].dom.removeEventListener("transitionend", te)
+                outbound["section-main"].resolver()
             }
-        );
+        });
 
-        inbound['section-main'].dom.style.transform = 'translateY(0)'
-    })
+        inbound["section-main"].dom.classList.remove(slideUpInClass1)
+        inbound["section-main"].dom.classList.add(slideUpInClass2)
 
+    });
 }
 
 function slideDownOut(transitionState) {
