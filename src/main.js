@@ -106,7 +106,9 @@ const Layout = () => {
     function SectionMain({attrs: initialAttrs}) {
 
         let selector = 'section' + b({
-            "grid-area": "2 / 1 / 2 / -1"
+            "grid-area": "2 / 1 / 2 / -1",
+            height: "100%",
+            overflow: 'hidden'
         })
 
         return addLifecycles('section-main', {
@@ -179,7 +181,8 @@ m.nav.init({
                     m('div', {style: 'height:100%; background-color: aliceblue;'}, [
                         'hello world via m.nav.init(): ',
                         m('div', m(m.route.Link, {href: "/foo?bar=1"}, '/foo')),
-                        m('div', m(m.route.Link, {href: "/bar"}, '/bar'))
+                        m('div', m(m.route.Link, {href: "/bar"}, '/bar')),
+                        m('div', m(m.route.Link, {href: "/list"}, '/list'))
                     ])
                 ]
             }
@@ -223,7 +226,70 @@ m.nav.init({
                     m('div', {style: 'height:100%; background-color: aquamarine;'}, '/baz')
                 ]
             }
-        }
+        },
+        "/list": (function () {
+
+            let listEl = undefined
+            let restoreData = {}
+
+            const saveScrollPosition = (e) => {
+                let {scrollTop} = listEl;
+                console.log('saveScrollPosition', e, {scrollTop: scrollTop})
+                Object.assign(restoreData = {scrollTop: scrollTop})
+                //e.preventDefault()  // test cancellable
+            }
+
+            return {
+                onbeforeroutechange: (arg) => {
+                    console.log('/list::onbeforeroutechange()', arg)
+                },
+                view: () => {
+                    return [
+                        m(
+                            "div",
+                            {
+                                oncreate: ({dom}) => {
+                                    m.nav.addEventListener(
+                                        "onbeforeroutechange",
+                                        saveScrollPosition
+                                    );
+                                },
+                                onremove: () => {
+                                    m.nav.removeEventListener(
+                                        "onbeforeroutechange",
+                                        saveScrollPosition
+                                    );
+                                }
+                            },
+                            "scroll down, nav away and return"
+                        ),
+                        m(
+                            "div",
+                            {
+                                oncreate: ({dom}) => {
+                                    listEl = dom
+                                    console.log('restoreData', restoreData)
+                                    if(restoreData.scrollTop) dom.scrollTop = restoreData.scrollTop
+                                },
+                                style: "max-height: calc(100% - 19px);overflow:auto;"
+                            },
+                            Array.from(Array(40).keys())
+                                .map((it, i) => i + 1)
+                                .map(itemid =>
+                                    m(
+                                        "div.ui.vertical.segment",
+                                        m(
+                                            m.route.Link,
+                                            {href: `/app/listennow/recents/${itemid}`},
+                                            `item ${itemid}`
+                                        )
+                                    )
+                                )
+                        )
+                    ]
+                }
+            }
+        })()
     },
     layoutComponent: Layout,
     _layoutComponent: {

@@ -11,7 +11,7 @@ m.cls = (def, separator = " ") => {
     return classes || "";
 };
 
-let RouteStates = {
+const RouteStates = {
     UNMOUNTED: 0,
     MOUNTED: 1,
     INITIAL_ROUTE: 2
@@ -43,6 +43,7 @@ let _navstate = {
     flattenRoutes: undefined,
     layoutComponent: undefined,
 
+    isSkipping: false,
     isRouteChange: false,
 
     // TODO -- need to implement
@@ -59,11 +60,13 @@ function _peek(back = 1) {
     let {length} = historyStack;
     if (!length) return null;
     if (back > length) return null;
+
     return historyStack[length - Math.abs(back)];
 }
 
 function pushOrPop(args, requestedPath, route) {
     console.log("m.nav::pushOrPop() 1", args, requestedPath, route);
+
     let {historyStack} = _navstate;
     let {length} = historyStack;
     let lastRcState = _peek();
@@ -126,11 +129,13 @@ export const RouteChangeState = (config) => {
 
     return {
         // _debug: _routeChange.onmatchParams,
-        // debug() {
-        //     return _routeChange;
-        // },
+        debug() {
+            return _routeChange;
+        },
 
-        key() {return _routeChange.key},
+        key() {
+            return _routeChange.key
+        },
 
         isEqualByPathAndArgs(pathAndParams) {
             let {args, route} = _routeChange.onmatchParams
@@ -141,6 +146,8 @@ export const RouteChangeState = (config) => {
 
     };
 };
+
+const omEventTarget = new EventTarget();
 
 m.nav = (function () {
     return {
@@ -163,6 +170,9 @@ m.nav = (function () {
             m.route(config.root || document.body, config.defaultRoute, _navstate.flattenedRouteResolvers);
             _navstate.isMounted = true;
         },
+
+        addEventListener: omEventTarget.addEventListener.bind(omEventTarget),
+        removeEventListener: omEventTarget.removeEventListener.bind(omEventTarget),
 
         route: {
 
@@ -238,53 +248,30 @@ function toEnhancedRouteResolvers() {
                 let _omValue;
 
                 let enhancedRouteResolver = {
+
                     //
                     // ONMATCH
                     //
                     onmatch: (args, requestedPath, route) => {
-                        //debugger;
 
                         console.log("m.nav::onmatch()", routeKey, args, requestedPath, route);
 
-                        // TODO -- implement onbeforeroutechange
+                        let outbound = _peek();
+                        let outBoundRouteResolver =
+                            outbound && _navstate.flattenedRouteResolvers[outbound.debug().onmatchParams.route];
 
-                        // const omEventBefore = new CustomEvent("onbeforeroutechange", {
-                        //     detail: { transitionState: _transitionState, outroute: _peek() }
-                        // });
-                        // omEventTarget.dispatchEvent(omEventBefore);
+                        if (outBoundRouteResolver?.hasOwnProperty("onbeforeroutechange")) {
 
-
-                        // let outBound = _peek();
-                        // let outBoundRouteResolver =
-                        //     outBound && _navstate.flattenedRouteResolvers[outBound.route];
-                        // if (
-                        //     outBoundRouteResolver?.hasOwnProperty("onbeforeroutechange")
-                        // ) {
-                        //     outBoundRouteResolver.onbeforeroutechange({
-                        //         inbound: {
-                        //             args: args,
-                        //             requestedPath: requestedPath,
-                        //             route: route,
-                        //             transitionState: _transitionState
-                        //         },
-                        //         outbound: _peek()
-                        //     });
-                        // }
-                        //
-                        // if (theUserDefinedRoute.hasOwnProperty("onbeforeroutechange")) {
-                        //     enhancedRouteResolver.onbeforeroutechange =
-                        //         theUserDefinedRoute.onbeforeroutechange;
-                        //
-                        //     theUserDefinedRoute.onbeforeroutechange({
-                        //         inbound: {
-                        //             args: args,
-                        //             requestedPath: requestedPath,
-                        //             route: route,
-                        //             transitionState: _transitionState
-                        //         },
-                        //         outbound: _peek()
-                        //     });
-                        // }
+                            outBoundRouteResolver.onbeforeroutechange({
+                                inbound: {
+                                    args: args,
+                                    requestedPath: requestedPath,
+                                    route: route,
+                                    transitionState: currentTransitionState
+                                },
+                                outbound: outbound
+                            });
+                        }
 
                         if (theUserDefinedRoute.hasOwnProperty("onmatch")) {
                             // call user defined onmatch()
@@ -303,7 +290,52 @@ function toEnhancedRouteResolvers() {
                         currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
                         currentTransitionState.context = {}
 
-                        console.log('m.nav::onmatch()', currentTransitionState)
+                        //
+                        // dispatch onbeforeroutechange event
+                        //
+                        const omEventBefore = new CustomEvent("onbeforeroutechange", {
+                            cancelable: true,
+                            detail: {transitionState: currentTransitionState, outbound: outbound}
+                        });
+                        let dispatchResult = omEventTarget.dispatchEvent(omEventBefore);
+
+                        // TODO -- first attempt at supporting cancellation of a route change.
+                        /*
+
+                        if (!_navstate.isSkipping) {
+                            const omEventBefore = new CustomEvent("onbeforeroutechange", {
+                                cancelable: true,
+                                detail: {transitionState: currentTransitionState, outbound: outbound}
+                            });
+
+                            let dispatchResult = omEventTarget.dispatchEvent(omEventBefore);
+                            console.log('m.nav::onmatch() dispatchResult', {dispatchResult: dispatchResult})
+
+                            if (!dispatchResult) {
+                                _navstate.isSkipping = true
+                                let {onmatchParams} = outbound.debug()
+                                console.log('m.nav::onmatch() onmatchParams', {onmatchParams: onmatchParams})
+
+                                m.route.set(onmatchParams.path, onmatchParams.data, {replace: true})
+                            } else {
+                                currentTransitionState = pushOrPop(args, requestedPath, route)
+                                currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
+                                currentTransitionState.context = {}
+                            }
+
+                        } else {
+                            console.log('m.nav::onmatch() SKIPPING')
+                            currentTransitionState = {directionType: DirectionTypes.SAME_ROUTE, rcState: outbound}
+                            currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
+                            currentTransitionState.context = {}
+
+                        }
+
+                        */
+
+                        //
+
+                        console.log('m.nav::onmatch() end', currentTransitionState)
 
                         return _omValue;
 
@@ -312,7 +344,7 @@ function toEnhancedRouteResolvers() {
                     //
                     // RENDER
                     //
-                    render: (vnode, attrs) => {
+                    render: (vnode) => {
                         console.log("m.nav::render()", routeKey, theUserDefinedRoute, vnode);
                         let {layoutComponent} = _navstate;
 
@@ -322,11 +354,12 @@ function toEnhancedRouteResolvers() {
                             // need this to reset after layout updates
                             Promise.resolve().then(() => {
                                 //console.log("m.nav::render()", "reset onMatchCalled")
+                                _navstate.isSkipping = false
                                 _navstate.onMatchCalled = false
                                 _navstate.anim = undefined
                             })
                         }
-                        if(_navstate.anim) {
+                        if (_navstate.anim) {
                             currentTransitionState.anim = _navstate.anim
                         }
                         let _transitionState = currentTransitionState
@@ -345,7 +378,7 @@ function toEnhancedRouteResolvers() {
                         }
 
                         vnode.attrs.transitionState = _transitionState;
-                        let theVnode = theUserDefinedRoute.render(vnode, attrs);
+                        let theVnode = theUserDefinedRoute.render(vnode);
 
                         // let's user return layout at render()
                         // TODO - maybe remove supporting this?
@@ -377,6 +410,11 @@ function toEnhancedRouteResolvers() {
                         );
                     }
                 };
+
+                // Install the user defined "onbeforeroutechange" handler
+                if (theUserDefinedRoute.hasOwnProperty("onbeforeroutechange")) {
+                    enhancedRouteResolver.onbeforeroutechange = theUserDefinedRoute.onbeforeroutechange;
+                }
 
                 return enhancedRouteResolver;
 
