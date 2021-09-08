@@ -45,6 +45,7 @@ let _navstate = {
 
     isSkipping: false,
     isRouteChange: false,
+    onmatchCalledCount: 0,
 
     // TODO -- need to implement
     fullStack: [],
@@ -237,14 +238,15 @@ function toEnhancedRouteResolvers() {
 
     _navstate.flattenedRoutes = flattenRoutes(_navstate.routes);
     let {flattenedRoutes} = _navstate;
+
     _navstate.flattenedRouteResolvers = Object.keys(flattenedRoutes).reduce(
         (accum, routeKey) => {
 
-            // these vars are accessible by onmatch() and render()
-            let theUserDefinedRoute = flattenedRoutes[routeKey];
-            let currentTransitionState
-
             accum[routeKey] = (function () {
+
+                // these vars are accessible by onmatch() and render() scoped per routeKey
+                let theUserDefinedRoute = flattenedRoutes[routeKey];
+                let currentTransitionState
                 let _omValue;
 
                 let enhancedRouteResolver = {
@@ -255,6 +257,17 @@ function toEnhancedRouteResolvers() {
                     onmatch: (args, requestedPath, route) => {
 
                         console.log("m.nav::onmatch()", routeKey, args, requestedPath, route);
+
+                        // if user's onmatch calls new route, remove the last route from stack
+                        // as it has effectively been skipped.
+                        if (_navstate.onmatchCalledCount > 0) {
+                            console.log("m.nav::onmatch() -- redirect encountered", routeKey, args, requestedPath, route);
+                            _navstate.historyStack.pop()
+                        }
+
+                        // accounts for m.route.sets() in users onmatch()
+                        // mithrils router can potentially call onmatch() several times then render()
+                        _navstate.onmatchCalledCount++
 
                         let outbound = _peek();
                         let outBoundRouteResolver =
@@ -277,6 +290,7 @@ function toEnhancedRouteResolvers() {
                             // call user defined onmatch()
                             _omValue = theUserDefinedRoute.onmatch(args, requestedPath, route);
                         }
+
                         if (!_omValue) {
                             //if no onmatch || the user's onmatch returns null, return route's component
                             _omValue = theUserDefinedRoute;
@@ -335,7 +349,10 @@ function toEnhancedRouteResolvers() {
 
                         //
 
-                        console.log('m.nav::onmatch() end', currentTransitionState)
+                        console.log('m.nav::onmatch() end', {
+                            _omValue: _omValue,
+                            currentTransitionState: currentTransitionState
+                        })
 
                         return _omValue;
 
@@ -346,6 +363,10 @@ function toEnhancedRouteResolvers() {
                     //
                     render: (vnode) => {
                         console.log("m.nav::render()", routeKey, theUserDefinedRoute, vnode);
+
+                        // reset
+                        _navstate.onmatchCalledCount = 0
+
                         let {layoutComponent} = _navstate;
 
                         if (!_navstate.onMatchCalled) {

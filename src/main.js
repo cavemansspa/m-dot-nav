@@ -45,7 +45,6 @@ const Layout = () => {
             console.log('Layout::onupdate()', {attrs: attrs, _layoutState: _layoutState})
 
             let {transitionState} = attrs
-            transitionState.context = _layoutState
 
             if (transitionState.directionType === DirectionTypes.REDRAW) {
                 return
@@ -54,12 +53,18 @@ const Layout = () => {
                 return
             }
 
+            transitionState.context = _layoutState
+
             Promise.resolve().then(() => {
                 let {outbound, inbound} = _layoutState
                 //console.log(outbound['section-main'].dom, inbound['section-main'].dom)
 
                 if (transitionState.anim) {
                     transitionState.anim(transitionState)
+                    return
+                }
+
+                if(!outbound['section-main']?.dom) {
                     return
                 }
 
@@ -182,7 +187,8 @@ m.nav.init({
                         'hello world via m.nav.init(): ',
                         m('div', m(m.route.Link, {href: "/foo?bar=1"}, '/foo')),
                         m('div', m(m.route.Link, {href: "/bar"}, '/bar')),
-                        m('div', m(m.route.Link, {href: "/list"}, '/list'))
+                        m('div', m(m.route.Link, {href: "/list"}, '/list')),
+                        m('div', m(m.route.Link, {href: "/redirect"}, '/redirect'))
                     ])
                 ]
             }
@@ -209,6 +215,11 @@ m.nav.init({
                     }, 'Slide Up In'),
                     m('div', {style: 'height:100%; background-color: aqua;'}, '/bar')
                 ]
+            }
+        },
+        "/redirect": {
+            onmatch: () => {
+                m.route.set('/list')
             }
         },
         "/baz": {
