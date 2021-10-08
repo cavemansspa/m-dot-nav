@@ -64,7 +64,19 @@ const Layout = () => {
                     return
                 }
 
-                if(!outbound['section-main']?.dom) {
+                if (!outbound['section-main']?.dom) {
+                    return
+                }
+
+
+                if (m.route.get() === '/baz' &&
+                    transitionState.directionType === DirectionTypes.FORWARD) {
+                    slideUpIn(transitionState)
+                    return
+                }
+                if (m.route.get() === '/bar' &&
+                    transitionState.directionType === DirectionTypes.BACK) {
+                    slideDownOut(transitionState)
                     return
                 }
 
@@ -175,139 +187,129 @@ function slideDownOut(transitionState) {
     );
 }
 
-m.nav.init({
-    root: document.body,
-    defaultRoute: "/",
-    routes: {
-        "/": {
-            view: ({attrs}) => {
-                console.log('/::view()', attrs)
-                return [
-                    m('div', {style: 'height:100%; background-color: aliceblue;'}, [
-                        'hello world via m.nav.init(): ',
-                        m('div', m(m.route.Link, {href: "/foo?bar=1"}, '/foo')),
-                        m('div', m(m.route.Link, {href: "/bar"}, '/bar')),
-                        m('div', m(m.route.Link, {href: "/list"}, '/list')),
-                        m('div', m(m.route.Link, {href: "/redirect"}, '/redirect'))
-                    ])
-                ]
-            }
-        },
-        "/foo": {
-            view: ({attrs}) => {
-                console.log('/foo::view()', attrs)
-                return [
-                    m('div', {style: 'height:100%; background-color: antiquewhite;'}, '/foo')
-                ]
-            }
-        },
-        "/bar": {
+m.nav(document.body, '/', {
+    "/": {
+        view: ({attrs}) => {
+            console.log('/::view()', attrs)
+            return [
+                m('div', {style: 'height:100%; background-color: aliceblue;'}, [
+                    'hello world via m.nav.init(): ',
+                    m('div', m(m.route.Link, {href: "/foo?bar=1"}, '/foo')),
+                    m('div', m(m.route.Link, {href: "/bar"}, '/bar')),
+                    m('div', m(m.route.Link, {href: "/list"}, '/list')),
+                    m('div', m(m.route.Link, {href: "/redirect"}, '/redirect'))
+                ])
+            ]
+        }
+    },
+    "/foo": {
+        view: ({attrs}) => {
+            console.log('/foo::view()', attrs)
+            return [
+                m('div', {style: 'height:100%; background-color: antiquewhite;'}, '/foo')
+            ]
+        }
+    },
+    "/bar": {
+        view: () => {
+            return [
+                m('div.ui.button', {
+                    onclick: (e) => {
+                        e.redraw = false
+                        m.nav.setRoute('/baz', null, {state: {moo: 'cow'}}, (ts) => {
+                            console.log(ts)
+                            slideUpIn(ts)
+                        })
+                    }
+                }, 'Slide Up In'),
+                m('div', {style: 'height:100%; background-color: aqua;'}, '/bar')
+            ]
+        }
+    },
+    "/redirect": {
+        onmatch: () => {
+            m.route.set('/list')
+        }
+    },
+    "/baz": {
+        view: () => {
+            return [
+                m('div.ui.button', {
+                    onclick: (e) => {
+                        e.redraw = false
+                        m.nav.setRoute('/bar', null, {state: {meow: 'cat'}}, (ts) => {
+                            console.log(ts)
+                            slideDownOut(ts)
+                        })
+                    }
+                }, 'Slide Down Out'),
+                m('div', {style: 'height:100%; background-color: aquamarine;'}, '/baz')
+            ]
+        }
+    },
+    "/list": (function () {
+
+        let listEl = undefined
+        let restoreData = {}
+
+        const saveScrollPosition = (e) => {
+            let {scrollTop} = listEl;
+            console.log('saveScrollPosition', e, {scrollTop: scrollTop})
+            Object.assign(restoreData = {scrollTop: scrollTop})
+            //e.preventDefault()  // test cancellable
+        }
+
+        return {
+            onbeforeroutechange: (arg) => {
+                console.log('/list::onbeforeroutechange()', arg)
+            },
             view: () => {
                 return [
-                    m('div.ui.button', {
-                        onclick: (e) => {
-                            e.redraw = false
-                            m.nav.route.set('/baz', null, {state: {moo: 'cow'}}, (ts) => {
-                                console.log(ts)
-                                slideUpIn(ts)
-                            })
-                        }
-                    }, 'Slide Up In'),
-                    m('div', {style: 'height:100%; background-color: aqua;'}, '/bar')
-                ]
-            }
-        },
-        "/redirect": {
-            onmatch: () => {
-                m.route.set('/list')
-            }
-        },
-        "/baz": {
-            view: () => {
-                return [
-                    m('div.ui.button', {
-                        onclick: (e) => {
-                            e.redraw = false
-                            m.nav.route.set('/bar', null, {state: {meow: 'cat'}}, (ts) => {
-                                console.log(ts)
-                                slideDownOut(ts)
-                            })
-                        }
-                    }, 'Slide Down Out'),
-                    m('div', {style: 'height:100%; background-color: aquamarine;'}, '/baz')
-                ]
-            }
-        },
-        "/list": (function () {
-
-            let listEl = undefined
-            let restoreData = {}
-
-            const saveScrollPosition = (e) => {
-                let {scrollTop} = listEl;
-                console.log('saveScrollPosition', e, {scrollTop: scrollTop})
-                Object.assign(restoreData = {scrollTop: scrollTop})
-                //e.preventDefault()  // test cancellable
-            }
-
-            return {
-                onbeforeroutechange: (arg) => {
-                    console.log('/list::onbeforeroutechange()', arg)
-                },
-                view: () => {
-                    return [
-                        m(
-                            "div",
-                            {
-                                oncreate: ({dom}) => {
-                                    m.nav.addEventListener(
-                                        "onbeforeroutechange",
-                                        saveScrollPosition
-                                    );
-                                },
-                                onremove: () => {
-                                    m.nav.removeEventListener(
-                                        "onbeforeroutechange",
-                                        saveScrollPosition
-                                    );
-                                }
+                    m(
+                        "div",
+                        {
+                            oncreate: ({dom}) => {
+                                m.nav.addEventListener(
+                                    "onbeforeroutechange",
+                                    saveScrollPosition
+                                );
                             },
-                            "scroll down, nav away and return"
-                        ),
-                        m(
-                            "div",
-                            {
-                                oncreate: ({dom}) => {
-                                    listEl = dom
-                                    console.log('restoreData', restoreData)
-                                    if(restoreData.scrollTop) dom.scrollTop = restoreData.scrollTop
-                                },
-                                style: "max-height: calc(100% - 19px);overflow:auto;"
+                            onremove: () => {
+                                m.nav.removeEventListener(
+                                    "onbeforeroutechange",
+                                    saveScrollPosition
+                                );
+                            }
+                        },
+                        "scroll down, nav away and return"
+                    ),
+                    m(
+                        "div",
+                        {
+                            oncreate: ({dom}) => {
+                                listEl = dom
+                                console.log('restoreData', restoreData)
+                                if (restoreData.scrollTop) dom.scrollTop = restoreData.scrollTop
                             },
-                            Array.from(Array(40).keys())
-                                .map((it, i) => i + 1)
-                                .map(itemid =>
+                            style: "max-height: calc(100% - 19px);overflow:auto;"
+                        },
+                        Array.from(Array(40).keys())
+                            .map((it, i) => i + 1)
+                            .map(itemid =>
+                                m(
+                                    "div.ui.vertical.segment",
                                     m(
-                                        "div.ui.vertical.segment",
-                                        m(
-                                            m.route.Link,
-                                            {href: `/app/listennow/recents/${itemid}`},
-                                            `item ${itemid}`
-                                        )
+                                        m.route.Link,
+                                        {href: `/app/listennow/recents/${itemid}`},
+                                        `item ${itemid}`
                                     )
                                 )
-                        )
-                    ]
-                }
+                            )
+                    )
+                ]
             }
-        })()
-    },
-    layoutComponent: Layout,
-    _layoutComponent: {
-        view: ({children, attrs}) => {
-            console.log(attrs)
-            return children
         }
-    }
+    })()
+}, {
+    layoutComponent: Layout
 })
-

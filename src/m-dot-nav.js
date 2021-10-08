@@ -32,7 +32,7 @@ export const DirectionTypes = {
 let origRouteDotSet = m.route.set;
 m.route.set = (route, params, options) => {
     console.warn("BYPASS: ", route, params, options);
-    m.nav.route.set(route, params, options);
+    m.nav.setRoute(route, params, options);
 };
 
 let _navstate = {
@@ -75,8 +75,9 @@ function pushOrPop(args, requestedPath, route) {
 
     let {path: thePath, params: theParams} = m.parsePathname(requestedPath)
     //console.log(thePath, theParams)
+    console.log('args, params', args, theParams)
 
-    let idObj = {args: args, path: thePath, requestedPath: requestedPath, route: route}
+    let idObj = {args: theParams, path: thePath, requestedPath: requestedPath, route: route}
     //console.log('idObj', idObj)
 
     let newRcState = RouteChangeState({
@@ -105,13 +106,13 @@ function pushOrPop(args, requestedPath, route) {
         console.log("m.nav::pushOrPop()", "GOING BACK ROUTE");
         historyStack.pop();
         _navstate.onMatchCalled = true
-        return {directionType: DirectionTypes.BACK, rcState: nextToLastRcState}
+        return {directionType: DirectionTypes.BACK, rcState: nextToLastRcState, prevRcState: lastRcState}
     }
 
     historyStack.push(newRcState);
     _navstate.onMatchCalled = true
     console.log("m.nav::pushOrPop()", "GOING FORWARD ROUTE");
-    return {directionType: DirectionTypes.FORWARD, rcState: newRcState}
+    return {directionType: DirectionTypes.FORWARD, rcState: newRcState, prevRcState: lastRcState}
 
 }
 
@@ -134,6 +135,10 @@ export const RouteChangeState = (config) => {
             return _routeChange;
         },
 
+        get onmatchParams() {
+            return _routeChange.onmatchParams
+        },
+
         key() {
             return _routeChange.key
         },
@@ -148,70 +153,83 @@ export const RouteChangeState = (config) => {
     };
 };
 
+window.addEventListener("popstate", function (e) {
+    console.log("m.nav()::popstate() -- ", e);
+});
+window.addEventListener("hashchange", function (e) {
+    console.log("m.nav()::hashchange() -- ", e);
+});
+
 const omEventTarget = new EventTarget();
 
 m.nav = (function () {
-    return {
 
-        init(config) {
-            console.log("m.nav.init", config);
-            if (!config.routes) {
-                throw new Error('m.nav.init() -- a routes object is required')
-            }
+    let _nav = function (root, defaultRoute, routes, config) {
+        console.log("m.nav()", root, defaultRoute, routes, config);
+        if (!routes) {
+            throw new Error('m.nav() -- a routes object is required.')
+        }
+        if (!config?.layoutComponent) {
+            throw new Error('m.nav() -- a layout component is required.')
+        }
 
-            _navstate.flows = Object.keys(config.flows || {}).reduce((acc, it) => {
-                acc[it] = Object.assign({}, config.flows[it], {name: it});
-                return acc;
-            }, {});
+        _navstate.flows = Object.keys(config.flows || {}).reduce((acc, it) => {
+            acc[it] = Object.assign({}, config.flows[it], {name: it});
+            return acc;
+        }, {});
 
-            _navstate.routes = config.routes;
-            _navstate.layoutComponent = config.layoutComponent;
+        _navstate.routes = routes;
+        _navstate.layoutComponent = config.layoutComponent;
 
-            toEnhancedRouteResolvers()
-            m.route(config.root || document.body, config.defaultRoute, _navstate.flattenedRouteResolvers);
-            _navstate.isMounted = true;
-        },
+        toEnhancedRouteResolvers()
+        m.route(root || document.body, defaultRoute, _navstate.flattenedRouteResolvers);
+        _navstate.isMounted = true;
+    }
+
+    Object.assign(_nav, {
 
         addEventListener: omEventTarget.addEventListener.bind(omEventTarget),
         removeEventListener: omEventTarget.removeEventListener.bind(omEventTarget),
 
-        route: {
+        setRoute(route, params, options = {}, anim) {
+            console.log('m.nav.setRoute()', route, params, options, anim)
 
-            set(route, params, options = {}, anim) {
+            // REMINDER: the mithril "popstate" handler hits onmatch() directly bypassing this logic.
+            // TODO -- need to implement handling hashchange event
 
-                // REMINDER: the mithril "popstate" handler hits onmatch() directly bypassing this logic.
-                // TODO -- need to implement handling hashchange event
+            let lastRcState = _peek() || {};
+            let nextToLastRcState = _peek(-2) || {};
+            let {historyStack} = _navstate;
 
-                let lastRcState = _peek() || {};
-                let nextToLastRcState = _peek(-2) || {};
-                let {historyStack} = _navstate;
-                let {length} = historyStack;
+            // normalizedParams -- converts e.g. {a: 1} to {a: "1"} to support consistent find by path and args.
+            let {params: normalizedParams} = m.parsePathname(m.buildPathname('/fake', params))
+            let pathAndArgs = {args: normalizedParams || {}, path: route};
 
-                let pathAndArgs = {args: params || {}, path: route};
+            let foundExisting = historyStack.find((item) => {
+                return item.isEqualByPathAndArgs(pathAndArgs)
+            });
 
-                let foundExisting = historyStack.find((item) => {
-                    return item.isEqualByPathAndArgs(pathAndArgs)
-                });
-
-                if (foundExisting === lastRcState) {
-                    console.log("m.nav.route.set() -- SAME ROUTE 1", foundExisting);
-                    Object.assign(options, {replace: true});
-                    origRouteDotSet(route, params, options);
-                    return;
-                }
-
-                _navstate.anim = anim;
-
-                if (foundExisting === nextToLastRcState) {
-                    console.log("m.nav.route.set() -- BACK ROUTE", nextToLastRcState);
-                    window.history.back();
-                    return;
-                }
-
+            if (foundExisting === lastRcState) {
+                console.log("m.nav.route.set() -- SAME ROUTE 1", foundExisting);
+                Object.assign(options, {replace: true});
                 origRouteDotSet(route, params, options);
+                return;
             }
+
+            _navstate.anim = anim;
+
+            if (foundExisting === nextToLastRcState) {
+                console.log("m.nav.route.set() -- BACK ROUTE", nextToLastRcState);
+                window.history.back();
+                return;
+            }
+
+            origRouteDotSet(route, params, options);
         }
-    }
+    })
+
+    return _nav
+
 })()
 
 function genKey() {
@@ -269,20 +287,21 @@ function toEnhancedRouteResolvers() {
                         // mithrils router can potentially call onmatch() several times then render()
                         _navstate.onmatchCalledCount++
 
-                        let outbound = _peek();
+                        let outboundRcState = _peek();
                         let outBoundRouteResolver =
-                            outbound && _navstate.flattenedRouteResolvers[outbound.debug().onmatchParams.route];
+                            outboundRcState && _navstate.flattenedRouteResolvers[outboundRcState.onmatchParams.route];
 
                         if (outBoundRouteResolver?.hasOwnProperty("onbeforeroutechange")) {
 
+                            let {path: thePath, params: theParams} = m.parsePathname(requestedPath)
+                            let idObj = {args: theParams, path: thePath, requestedPath: requestedPath, route: route}
+
                             outBoundRouteResolver.onbeforeroutechange({
-                                inbound: {
-                                    args: args,
-                                    requestedPath: requestedPath,
-                                    route: route,
-                                    transitionState: currentTransitionState
-                                },
-                                outbound: outbound
+                                lastTransitionState: currentTransitionState,
+                                inbound: RouteChangeState({
+                                    onmatchParams: idObj
+                                }),
+                                outbound: outboundRcState
                             });
                         }
 
@@ -309,7 +328,7 @@ function toEnhancedRouteResolvers() {
                         //
                         const omEventBefore = new CustomEvent("onbeforeroutechange", {
                             cancelable: true,
-                            detail: {transitionState: currentTransitionState, outbound: outbound}
+                            detail: {transitionState: currentTransitionState, outbound: outboundRcState}
                         });
                         let dispatchResult = omEventTarget.dispatchEvent(omEventBefore);
 
@@ -372,7 +391,7 @@ function toEnhancedRouteResolvers() {
                         if (!_navstate.onMatchCalled) {
                             currentTransitionState.directionType = DirectionTypes.REDRAW
                         } else {
-                            // need this to reset after layout updates
+                            // reset to defaults after layout updates
                             Promise.resolve().then(() => {
                                 //console.log("m.nav::render()", "reset onMatchCalled")
                                 _navstate.isSkipping = false

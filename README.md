@@ -14,20 +14,61 @@ not uncommon to conflate application routing with application navigation. Howeve
 `m-dot-nav` follows `m.route`'s api for specifying your application's routes with an object that contains endpoint keys mapped to a component or route resolver. Additionally, a user-defined layout component is required.  
 
 ```
-m.nav.init({
-  // You specify routes the same as you do with m.route
-  routes: {
-    "/mypath": MyComponent
-  },
-  // m.nav works in conjunction with an installed layout component
-  layoutComponent: MyLayoutComponent,
-  defaultRoute: "/mypath"
-});
+    m.nav(document.body, "/default", {
+
+            // You specify routes the same as you do with m.route()
+            "/default": {
+                view: ({attrs}) => {
+                    return m('div', 'this is /default')
+                }
+            },
+
+            // m.nav works in conjunction with an installed layout component
+        }, {
+            layoutComponent: {
+                view: ({attrs, children}) => m('div', {style: 'height:100%; background-color: aliceblue;'}, [
+                    m('div', attrs.transitionState.directionType),
+                    children
+                ])
+            }
+        }
+    );
 ```
 
-Internally, `m-dot-nav` injects it's own enhanced route resolvers .  These enhanced route resolvers maintain a `transitionState` object that's passed as an attribute to the installed layout component.
+Internally, `m-dot-nav` injects it's own enhanced route resolver per user defined route.  These enhanced route resolvers maintain a `transitionState` object that's passed as an attribute to the installed layout component.
 
-The `m.nav.init({})` initializes navigation and provides the following:
-* `m.nav.route.set()` -- this is the same as `m.route.set()` with an additional parameter that takes a function to
-handle your inbound / outbound transitions. 
-* an `onbeforeroutechange` callback can be added to your route resolver definition.
+The `m.nav({})` initializes navigation and provides the following:
+* `m.nav.setRoute(route, params, options = {}, anim)` -- this is the same as `m.route.set()` with an additional parameter that takes a function to
+handle your inbound / outbound transitions.
+* an `onbeforeroutechange` callback can be added to your user defined route definition.
+```
+    m.nav(document.body, "/default", {
+
+            // You specify routes the same as you do with m.route()
+            "/default": {
+                // onbeforeroutechange param contains:
+                //    inbound: 
+                //    lastTransitionState: 
+                //    outbound: 
+                onbeforeroutechange: (changeInfo) => console.log('/default onbeforeroutechange', changeInfo),
+                view: ({attrs}) => {
+                    return m('div', 'this is /default')
+                }
+            },
+
+        ...
+```
+
+
+#Transition State
+The transition state object has the following structure.
+```
+{
+    directionType: // provides information about route change direction. FORWARD, BACKWORD, SAME_ROUTE
+    context:       // user defined data 
+}
+```
+Your installed layout can use the `transitionState` object to determine how to animate
+between routes.
+
+# Examples
