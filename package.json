@@ -1,5 +1,9 @@
 {
-  "name": "rollup-starter-app",
+  "name": "rollup-starter-lib",
+  "version": "1.0.0",
+  "main": "dist/m-dot-nav.cjs.js",
+  "module": "dist/m-dot-nav.esm.js",
+  "browser": "dist/m-dot-nav.umd.js",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.0.0",
     "@rollup/plugin-node-resolve": "^11.1.0",
@@ -18,5 +22,8 @@
     "watch": "rollup -c -w",
     "dev": "npm-run-all --parallel start watch",
     "start": "serve public"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }
