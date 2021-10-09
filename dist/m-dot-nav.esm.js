@@ -2,6 +2,8 @@ import { isEqual } from 'lodash-es';
 import m from 'mithril';
 import b from 'bss';
 
+window.m = m;
+
 m.cls = (def, separator = " ") => {
     let classes;
     for (const cls in def) {

@@ -4048,6 +4048,8 @@
 
   var mithril = m;
 
+  window.m = mithril;
+
   mithril.cls = (def, separator = " ") => {
       let classes;
       for (const cls in def) {

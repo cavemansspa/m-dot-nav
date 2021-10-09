@@ -9,6 +9,8 @@ function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'defau
 var m__default = /*#__PURE__*/_interopDefaultLegacy(m);
 var b__default = /*#__PURE__*/_interopDefaultLegacy(b);
 
+window.m = m__default['default'];
+
 m__default['default'].cls = (def, separator = " ") => {
     let classes;
     for (const cls in def) {
