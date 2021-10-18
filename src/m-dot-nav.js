@@ -470,5 +470,3 @@ function toEnhancedRouteResolvers() {
 
     return _navstate.flattenedRouteResolvers;
 }
-
-export default m
