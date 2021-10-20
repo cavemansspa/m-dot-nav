@@ -1,7 +1,7 @@
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global['m-dot-nav'] = {}));
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.mdotnav = {}));
 }(this, (function (exports) { 'use strict';
 
   /** Detect free variable `global` from Node.js. */
@@ -4514,7 +4514,6 @@
 
   exports.DirectionTypes = DirectionTypes;
   exports.RouteChangeState = RouteChangeState;
-  exports['default'] = mithril;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
