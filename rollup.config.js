@@ -7,7 +7,7 @@ export default [
 	{
 		input: 'src/m-dot-nav.js',
 		output: {
-			name: 'm-dot-nav',
+			name: 'mdotnav',
 			file: pkg.browser,
 			format: 'umd'
 		},
@@ -24,7 +24,7 @@ export default [
 	// an array for the `output` option, where we can specify
 	// `file` and `format` for each target)
 	{
-		input: 'src/main.js',
+		input: 'src/m-dot-nav.js',
 		external: ['ms'],
 		output: [
 			{ file: pkg.main, format: 'cjs' },
