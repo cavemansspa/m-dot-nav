@@ -58,7 +58,26 @@ handle your inbound / outbound transitions.
 
         ...
 ```
+* an alternative to the route resolver based `onbeforeroutechange`, you can
+register an event listener to react to a route change. 
+```
+                    m("div", {
+                            oncreate: ({dom}) => {
+                                m.nav.addEventListener(
+                                    "onbeforeroutechange",
+                                    saveScrollPosition
+                                );
+                            },
+                            onremove: () => {
+                                m.nav.removeEventListener(
+                                    "onbeforeroutechange",
+                                    saveScrollPosition
+                                );
+                            }
+                        },
+                    ),
 
+```
 
 #Transition State
 The transition state object has the following structure.
@@ -72,3 +91,5 @@ Your installed layout can use the `transitionState` object to determine how to a
 between routes.
 
 # Examples
+
+[flems example](https://tinyurl.com/vd9e37s4)
