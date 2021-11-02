@@ -4113,7 +4113,6 @@
   //
   let origRouteDotSet = mithril.route.set;
   mithril.route.set = (route, params, options) => {
-      console.warn("BYPASS: ", route, params, options);
       mithril.nav.setRoute(route, params, options);
   };
 
@@ -4148,7 +4147,6 @@
   }
 
   function pushOrPop(args, requestedPath, route) {
-      console.log("m.nav::pushOrPop() 1", args, requestedPath, route);
 
       let {historyStack} = _navstate;
       let {length} = historyStack;
@@ -4157,7 +4155,6 @@
 
       let {path: thePath, params: theParams} = mithril.parsePathname(requestedPath);
       //console.log(thePath, theParams)
-      console.log('args, params', args, theParams);
 
       let idObj = {args: theParams, path: thePath, requestedPath: requestedPath, route: route};
       //console.log('idObj', idObj)
@@ -4169,7 +4166,6 @@
       //console.log('newRcState', newRcState)
 
       if (!length) {
-          console.log("m.nav::pushOrPop()", "INITIAL ROUTE");
           historyStack.push(newRcState);
           return {directionType: DirectionTypes.INITIAL, rcState: newRcState}
       }
@@ -4180,12 +4176,10 @@
 
       if (foundExisting === lastRcState) {
           //debugger;
-          console.log("m.nav::pushOrPop()", "SAME ROUTE 0", foundExisting);
           return {directionType: DirectionTypes.SAME_ROUTE, rcState: lastRcState}
       }
 
       if (foundExisting === nextToLastRcState) {
-          console.log("m.nav::pushOrPop()", "GOING BACK ROUTE");
           historyStack.pop();
           _navstate.onMatchCalled = true;
           return {directionType: DirectionTypes.BACK, rcState: nextToLastRcState, prevRcState: lastRcState}
@@ -4193,7 +4187,6 @@
 
       historyStack.push(newRcState);
       _navstate.onMatchCalled = true;
-      console.log("m.nav::pushOrPop()", "GOING FORWARD ROUTE");
       return {directionType: DirectionTypes.FORWARD, rcState: newRcState, prevRcState: lastRcState}
 
   }
@@ -4236,10 +4229,8 @@
   };
 
   window.addEventListener("popstate", function (e) {
-      console.log("m.nav()::popstate() -- ", e);
   });
   window.addEventListener("hashchange", function (e) {
-      console.log("m.nav()::hashchange() -- ", e);
   });
 
   const omEventTarget = new EventTarget();
@@ -4247,7 +4238,6 @@
   mithril.nav = (function () {
 
       let _nav = function (root, defaultRoute, routes, config) {
-          console.log("m.nav()", root, defaultRoute, routes, config);
           if (!routes) {
               throw new Error('m.nav() -- a routes object is required.')
           }
@@ -4274,7 +4264,6 @@
           removeEventListener: omEventTarget.removeEventListener.bind(omEventTarget),
 
           setRoute(route, params, options = {}, anim) {
-              console.log('m.nav.setRoute()', route, params, options, anim);
 
               // REMINDER: the mithril "popstate" handler hits onmatch() directly bypassing this logic.
               // TODO -- need to implement handling hashchange event
@@ -4292,7 +4281,6 @@
               });
 
               if (foundExisting === lastRcState) {
-                  console.log("m.nav.route.set() -- SAME ROUTE 1", foundExisting);
                   Object.assign(options, {replace: true});
                   origRouteDotSet(route, params, options);
                   return;
@@ -4301,7 +4289,6 @@
               _navstate.anim = anim;
 
               if (foundExisting === nextToLastRcState) {
-                  console.log("m.nav.route.set() -- BACK ROUTE", nextToLastRcState);
                   window.history.back();
                   return;
               }
@@ -4356,12 +4343,9 @@
                       //
                       onmatch: (args, requestedPath, route) => {
 
-                          console.log("m.nav::onmatch()", routeKey, args, requestedPath, route);
-
                           // if user's onmatch calls new route, remove the last route from stack
                           // as it has effectively been skipped.
                           if (_navstate.onmatchCalledCount > 0) {
-                              console.log("m.nav::onmatch() -- redirect encountered", routeKey, args, requestedPath, route);
                               _navstate.historyStack.pop();
                           }
 
@@ -4450,11 +4434,6 @@
 
                           //
 
-                          console.log('m.nav::onmatch() end', {
-                              _omValue: _omValue,
-                              currentTransitionState: currentTransitionState
-                          });
-
                           return _omValue;
 
                       },
@@ -4463,7 +4442,6 @@
                       // RENDER
                       //
                       render: (vnode) => {
-                          console.log("m.nav::render()", routeKey, theUserDefinedRoute, vnode);
 
                           // reset
                           _navstate.onmatchCalledCount = 0;
@@ -4488,7 +4466,6 @@
 
                           // If returning a component at route, add installed layout
                           if (!theUserDefinedRoute.hasOwnProperty("render")) {
-                              console.log("m.nav::render()", "COMPONENT, ADDING INSTALLED LAYOUT");
 
                               vnode.attrs.transitionState = _transitionState;
 
@@ -4505,13 +4482,11 @@
                           // let's user return layout at render()
                           // TODO - maybe remove supporting this?
                           if (theVnode.tag === layoutComponent) {
-                              console.warn("m.nav::render()", "Layout not required from route");
                               theVnode.attrs.transitionState = _transitionState;
                               return theVnode;
                           }
 
                           if (theVnode.hasOwnProperty("items")) {
-                              console.log("m.nav::render()", "HAS ITEMS, USING INSTALLED LAYOUT");
 
                               return mithril(layoutComponent, {
                                   cls: theVnode.cls,
@@ -4523,7 +4498,6 @@
 
                           // implicit layout, user does not return as root of their render() output.
                           // called layout component will need to know to handle vnode via children param.
-                          console.log("m.nav::render()", "USING INSTALLED LAYOUT");
 
                           return mithril(
                               layoutComponent,
