@@ -58,8 +58,10 @@ handle your inbound / outbound transitions.
 
         ...
 ```
-* an alternative to the route resolver based `onbeforeroutechange`, you can
+* An alternative to the route resolver based `onbeforeroutechange` approach is to 
 register an event listener to react to a route change. 
+This can be helpful in cases where you have a deeply nested component where you want
+to add code / behavior when it's about to go out of scope.
 ```
                     m("div", {
                             oncreate: ({dom}) => {
@@ -78,6 +80,12 @@ register an event listener to react to a route change.
                     ),
 
 ```
+
+* NOTE: the name `onbeforeroutechange` is a bit nuanced in that the
+browser's address bar will have already changed to the new inbound url.
+This is because mithril's router is wired to the `onpopstate` event.
+However, keep in mind that although the address bar url has already updated,
+mithril is pending the view update based on your layout's behavior.
 
 #Transition State
 The transition state object has the following structure.
