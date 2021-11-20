@@ -87,7 +87,7 @@ This is because mithril's router is wired to the `onpopstate` event.
 However, keep in mind that although the address bar url has already updated,
 mithril is pending the view update based on your layout's behavior.
 
-#Transition State
+# Transition State
 The transition state object has the following structure.
 ```
 {
@@ -97,6 +97,12 @@ The transition state object has the following structure.
 ```
 Your installed layout can use the `transitionState` object to determine how to animate
 between routes.
+
+# History
+When clicking on a link using `m.route.Link`, `m-dot-nav` will check to see if
+you're going back to the previous route and call `history.back()`.  This results in a
+more reasonable history stack and better aligns the browser back / forward buttons
+to app links. 
 
 # Examples
 
