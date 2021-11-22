@@ -1,12 +1,14 @@
 {
   "name": "m-dot-nav",
-  "version": "1.0.0",
+  "version": "1.0.3",
+  "homepage": "https://github.com/cavemansspa/m-dot-nav#readme",
   "main": "dist/m-dot-nav.cjs.js",
   "module": "dist/m-dot-nav.esm.js",
   "browser": "dist/m-dot-nav.umd.js",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^21.0.1",
     "@rollup/plugin-node-resolve": "^13.0.6",
+    "@rollup/plugin-strip": "^2.1.0",
     "npm-run-all": "^4.1.5",
     "rollup": "^2.58.0",
     "rollup-plugin-terser": "^7.0.2",
