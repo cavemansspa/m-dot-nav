@@ -25,7 +25,8 @@ export const DirectionTypes = {
     SAME_ROUTE: "SAME ROUTE",
     REDRAW: "REDRAW",
     BACK: "BACK",
-    FORWARD: "FORWARD"
+    FORWARD: "FORWARD",
+    EXISTING_ROUTE: "EXISTING_ROUTE"
 };
 
 //
@@ -48,6 +49,7 @@ let _navstate = {
     isSkipping: false,
     isRouteChange: false,
     onmatchCalledCount: 0,
+    currentIndex: 0,
 
     // TODO -- need to implement
     fullStack: [],
@@ -68,7 +70,7 @@ function _peek(back = 1) {
 }
 
 function pushOrPop(args, requestedPath, route) {
-    console.log("m.nav::pushOrPop() 1", args, requestedPath, route);
+    console.log("m.nav::pushOrPop()", {args: args, requestedPath: requestedPath, route: route});
 
     let {historyStack} = _navstate;
     let {length} = historyStack;
@@ -76,17 +78,14 @@ function pushOrPop(args, requestedPath, route) {
     let nextToLastRcState = _peek(-2) || {};
 
     let {path: thePath, params: theParams} = m.parsePathname(requestedPath)
-    //console.log(thePath, theParams)
-    console.log('args, params', args, theParams)
+    console.log("m.nav::pushOrPop() -- start: ", {args: args, params: theParams});
 
     let idObj = {args: theParams, path: thePath, requestedPath: requestedPath, route: route}
-    //console.log('idObj', idObj)
+    console.log("m.nav::pushOrPop() -- idObj: ", idObj);
 
     let newRcState = RouteChangeState({
         onmatchParams: idObj
     })
-
-    //console.log('newRcState', newRcState)
 
     if (!length) {
         console.log("m.nav::pushOrPop()", "INITIAL ROUTE");
@@ -98,22 +97,47 @@ function pushOrPop(args, requestedPath, route) {
         it.isEqualByPathAndArgs({args: args || {}, path: thePath})
     ))
 
-    if (foundExisting === lastRcState) {
-        //debugger;
-        console.log("m.nav::pushOrPop()", "SAME ROUTE 0", foundExisting);
-        return {directionType: DirectionTypes.SAME_ROUTE, rcState: lastRcState}
-    }
+    let existingIndex = historyStack.indexOf(foundExisting)
+    if (foundExisting?.isEqualByPathAndArgs({path: thePath, args: theParams})) {
 
-    if (foundExisting === nextToLastRcState) {
-        console.log("m.nav::pushOrPop()", "GOING BACK ROUTE");
-        historyStack.pop();
+        let back = (length - (1 + existingIndex)) * -1
+        back = existingIndex - _navstate.currentIndex
+        console.log("m.nav::pushOrPop()", "FOUND EXISTING ROUTE", {back: back}, foundExisting);
         _navstate.onMatchCalled = true
-        return {directionType: DirectionTypes.BACK, rcState: nextToLastRcState, prevRcState: lastRcState}
+
+        if(back === 0) {
+            console.log("m.nav::pushOrPop()", "SAME ROUTE 0", foundExisting);
+            _navstate.currentIndex = existingIndex
+            return {directionType: DirectionTypes.SAME_ROUTE, rcState: lastRcState}
+        }
+
+        if(back === -1) {
+            _navstate.currentIndex = existingIndex
+            console.log("m.nav::pushOrPop()", "EXISTING GOING BACK ROUTE");
+            historyStack.pop()
+            return {directionType: DirectionTypes.BACK, rcState: nextToLastRcState, prevRcState: lastRcState}
+        }
+
+        if(back === 1) {
+            _navstate.currentIndex = existingIndex
+            console.log("m.nav::pushOrPop()", "EXISTING GOING FORWARD ROUTE");
+            return {directionType: DirectionTypes.FORWARD, rcState: nextToLastRcState, prevRcState: lastRcState}
+        }
+
+        if(back < 0) {
+            for(let i = back; i < 0; i++) {
+                console.log("m.nav::pushOrPop()", "popping", i);
+                historyStack.pop()
+            }
+        }
+        _navstate.currentIndex = existingIndex
+        return {directionType: DirectionTypes.EXISTING_ROUTE, back: back, rcState: newRcState}
     }
 
+    _navstate.currentIndex++
     historyStack.push(newRcState);
     _navstate.onMatchCalled = true
-    console.log("m.nav::pushOrPop()", "GOING FORWARD ROUTE");
+    console.log("m.nav::pushOrPop()", "GOING FORWARD ROUTE", _navstate.currentIndex);
     return {directionType: DirectionTypes.FORWARD, rcState: newRcState, prevRcState: lastRcState}
 
 }
@@ -132,7 +156,6 @@ export const RouteChangeState = (config) => {
     };
 
     return {
-        // _debug: _routeChange.onmatchParams,
         debug() {
             return _routeChange;
         },
@@ -149,7 +172,7 @@ export const RouteChangeState = (config) => {
             let {args, route} = _routeChange.onmatchParams
 //             console.log(args, route)
 //             console.log(pathAndParams)
-            return isEqual({args: args, path: route}, pathAndParams)
+            return isEqual({args: args || {}, path: route}, pathAndParams)
         }
 
     };
@@ -190,6 +213,10 @@ m.nav = (function () {
 
     Object.assign(_nav, {
 
+        debug() {
+            return _navstate
+        },
+
         addEventListener: omEventTarget.addEventListener.bind(omEventTarget),
         removeEventListener: omEventTarget.removeEventListener.bind(omEventTarget),
 
@@ -211,20 +238,25 @@ m.nav = (function () {
                 return item.isEqualByPathAndArgs(pathAndArgs)
             });
 
-            if (foundExisting === lastRcState) {
-                console.log("m.nav.route.set() -- SAME ROUTE 1", foundExisting);
+            let existingIndex = historyStack.indexOf(foundExisting)
+            if (_navstate.currentIndex === existingIndex) {
+                console.log("m.nav.setRoute() -- SAME ROUTE 1", foundExisting);
                 Object.assign(options, {replace: true});
                 origRouteDotSet(route, params, options);
                 return;
             }
 
-            _navstate.anim = anim;
-
-            if (foundExisting === nextToLastRcState) {
-                console.log("m.nav.route.set() -- BACK ROUTE", nextToLastRcState);
-                window.history.back();
-                return;
+            if (foundExisting?.isEqualByPathAndArgs(pathAndArgs)) {
+                let back = (historyStack.length - (1 + historyStack.indexOf(foundExisting))) * -1
+                back = existingIndex - _navstate.currentIndex
+                console.log("m.nav.setRoute()", "FOUND EXISTING ROUTE", back, foundExisting);
+                if(back < 0) {
+                    history.go(back)
+                    return
+                }
             }
+
+            _navstate.anim = anim;
 
             origRouteDotSet(route, params, options);
         }
