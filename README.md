@@ -104,6 +104,18 @@ you're going back to the previous route and call `history.back()`.  This results
 more reasonable history stack and better aligns the browser back / forward buttons
 to app links. 
 
+# Nested Routes and Nested Layout
+```
+    "/nested": (function () {
+        let layoutComponent = {view: ({children}) => [m('div', 'sublayout')].concat(children)}
+        return {
+            "/a": {render: () => m(layoutComponent, m('div', 'this is /nested/a'))},
+            "/b": {render: () => m(layoutComponent, m('div', 'this is /nested/b'))}
+        }
+    })()
+
+```
+
 # Examples
 
 [flems example](https://tinyurl.com/vd9e37s4)
