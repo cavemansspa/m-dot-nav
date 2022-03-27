@@ -97,13 +97,13 @@ function pushOrPop(args, requestedPath, route) {
         it.isEqualByPathAndArgs({args: args || {}, path: thePath})
     ))
 
-    let existingIndex = historyStack.indexOf(foundExisting)
     if (foundExisting?.isEqualByPathAndArgs({path: thePath, args: theParams})) {
+
+        let existingIndex = historyStack.indexOf(foundExisting)
 
         let back = (length - (1 + existingIndex)) * -1
         back = existingIndex - _navstate.currentIndex
         console.log("m.nav::pushOrPop()", "FOUND EXISTING ROUTE", {back: back}, foundExisting);
-        _navstate.onMatchCalled = true
 
         if(back === 0) {
             console.log("m.nav::pushOrPop()", "SAME ROUTE 0", foundExisting);
@@ -136,7 +136,6 @@ function pushOrPop(args, requestedPath, route) {
 
     _navstate.currentIndex++
     historyStack.push(newRcState);
-    _navstate.onMatchCalled = true
     console.log("m.nav::pushOrPop()", "GOING FORWARD ROUTE", _navstate.currentIndex);
     return {directionType: DirectionTypes.FORWARD, rcState: newRcState, prevRcState: lastRcState}
 
@@ -355,7 +354,7 @@ function toEnhancedRouteResolvers() {
                         // Promise.resolve().then(() => console.log('onmatch::Promise.resolve()!!!!'), JSON.stringify(transitionState))
 
                         currentTransitionState = pushOrPop(args, requestedPath, route)
-                        currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
+                        currentTransitionState.isRouteChange = () => _navstate.onmatchCalledCount > 0
                         currentTransitionState.context = {}
 
                         //
@@ -421,14 +420,12 @@ function toEnhancedRouteResolvers() {
 
                         let {layoutComponent} = _navstate;
 
-                        if (!_navstate.onMatchCalledCount) {
+                        if (!_navstate.onmatchCalledCount) {
                             currentTransitionState.directionType = DirectionTypes.REDRAW
                         } else {
                             // reset to defaults after layout updates
                             Promise.resolve().then(() => {
-                                //console.log("m.nav::render()", "reset onMatchCalled")
                                 _navstate.isSkipping = false
-                                _navstate.onMatchCalled = false
                                 _navstate.anim = undefined
                             })
                         }
