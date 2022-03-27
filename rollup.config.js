@@ -7,6 +7,7 @@ export default [
     // browser-friendly UMD build
     {
         input: 'src/m-dot-nav.js',
+        external: ['mithril'],
         output: {
             name: 'mdotnav',
             file: pkg.browser,
@@ -19,7 +20,7 @@ export default [
             ]
             : [
                 strip({
-                    include: 'src/m-dot-nav.js'
+                   include: ['src/m-dot-nav.js'],
                 }),
                 resolve(), // so Rollup can find `ms`
                 commonjs() // so Rollup can convert `ms` to an ES module
@@ -34,10 +35,22 @@ export default [
     // `file` and `format` for each target)
     {
         input: 'src/m-dot-nav.js',
-        external: ['ms'],
+        external: ['mithril'],
         output: [
             {file: pkg.main, format: 'cjs'},
             {file: pkg.module, format: 'es'}
-        ]
+        ],
+        plugins: process.env.BUILD === 'development'
+            ? [
+                resolve(), // so Rollup can find `ms`
+                commonjs() // so Rollup can convert `ms` to an ES module
+            ]
+            : [
+                strip({
+                   include: ['src/m-dot-nav.js'],
+                }),
+                resolve(), // so Rollup can find `ms`
+                commonjs() // so Rollup can convert `ms` to an ES module
+            ]
     }
 ];
