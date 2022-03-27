@@ -315,6 +315,7 @@ function toEnhancedRouteResolvers() {
                         if (_navstate.onmatchCalledCount > 0) {
                             console.log("m.nav::onmatch() -- redirect encountered", routeKey, args, requestedPath, route);
                             _navstate.historyStack.pop()
+                            _navstate.currentIndex--
                         }
 
                         // accounts for m.route.sets() in users onmatch()
@@ -417,12 +418,10 @@ function toEnhancedRouteResolvers() {
                     render: (vnode) => {
                         console.log("m.nav::render()", routeKey, theUserDefinedRoute, vnode);
 
-                        // reset
-                        _navstate.onmatchCalledCount = 0
 
                         let {layoutComponent} = _navstate;
 
-                        if (!_navstate.onMatchCalled) {
+                        if (!_navstate.onMatchCalledCount) {
                             currentTransitionState.directionType = DirectionTypes.REDRAW
                         } else {
                             // reset to defaults after layout updates
@@ -433,6 +432,9 @@ function toEnhancedRouteResolvers() {
                                 _navstate.anim = undefined
                             })
                         }
+                        // reset
+                        _navstate.onmatchCalledCount = 0
+
                         if (_navstate.anim) {
                             currentTransitionState.anim = _navstate.anim
                         }
