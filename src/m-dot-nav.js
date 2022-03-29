@@ -225,8 +225,6 @@ m.nav = (function () {
             // REMINDER: the mithril "popstate" handler hits onmatch() directly bypassing this logic.
             // TODO -- need to implement handling hashchange event
 
-            let lastRcState = _peek() || {};
-            let nextToLastRcState = _peek(-2) || {};
             let {historyStack} = _navstate;
 
             // normalizedParams -- converts e.g. {a: 1} to {a: "1"} to support consistent find by path and args.
@@ -253,6 +251,12 @@ m.nav = (function () {
                     history.go(back)
                     return
                 }
+            }
+
+            // consider handling this situation inside onmatch.
+            if(options?.replace === true) {
+                _navstate.currentIndex--
+                historyStack.pop()
             }
 
             _navstate.anim = anim;
