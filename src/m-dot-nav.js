@@ -46,6 +46,7 @@ let _navstate = {
     flattenRoutes: undefined,
     layoutComponent: undefined,
 
+    replacingState: false,
     isSkipping: false,
     isRouteChange: false,
     onmatchCalledCount: 0,
@@ -253,10 +254,8 @@ m.nav = (function () {
                 }
             }
 
-            // consider handling this situation inside onmatch.
             if(options?.replace === true) {
-                _navstate.currentIndex--
-                historyStack.pop()
+                _navstate.replacingState = true
             }
 
             _navstate.anim = anim;
@@ -361,6 +360,12 @@ function toEnhancedRouteResolvers() {
                         currentTransitionState.isRouteChange = () => _navstate.onmatchCalledCount > 0
                         currentTransitionState.context = {}
 
+                        if(_navstate.replacingState) {
+                            _navstate.currentIndex--
+                            let repIndex = _navstate.historyStack.indexOf(_peek(-2))
+                            _navstate.historyStack.splice(repIndex,1)
+                        }
+
                         //
                         // dispatch onbeforeroutechange event
                         //
@@ -429,6 +434,7 @@ function toEnhancedRouteResolvers() {
                         } else {
                             // reset to defaults after layout updates
                             Promise.resolve().then(() => {
+                                _navstate.replacingState = false
                                 _navstate.isSkipping = false
                                 _navstate.anim = undefined
                             })
