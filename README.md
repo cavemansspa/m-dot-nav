@@ -118,4 +118,4 @@ to app links.
 
 # Examples
 
-[flems example](https://tinyurl.com/vd9e37s4)
+[example](https://cavemansspa.github.io/nav-demo/dist/index.html)
