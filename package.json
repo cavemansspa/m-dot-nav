@@ -1,6 +1,6 @@
 {
   "name": "m-dot-nav",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "homepage": "https://github.com/cavemansspa/m-dot-nav#readme",
   "main": "dist/m-dot-nav.cjs.js",
   "module": "dist/m-dot-nav.esm.js",
