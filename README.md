@@ -1,4 +1,7 @@
 # m-dot-nav
+
+[![Join the chat at https://gitter.im/m-dot-nav/community](https://badges.gitter.im/m-dot-nav/community.svg)](https://gitter.im/m-dot-nav/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Navigation wrapper over Mithril's route-resolvers.
 
 # Routing vs Navigation
