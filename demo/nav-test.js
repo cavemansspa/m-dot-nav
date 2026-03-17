@@ -1,6 +1,6 @@
 import m from "mithril";
-import { createFadeLayout, createSlideLayout, DirectionTypes } from "../src/m-dot-nav.js";
-//import { createFadeLayout, createSlideLayout, DirectionTypes } from "m-dot-nav";
+// import { createFadeLayout, createSlideLayout, DirectionTypes } from "./m-dot-nav.js";
+import { createFadeLayout, createSlideLayout, DirectionTypes } from "m-dot-nav";
 
 const CssLayout = createSlideLayout();
 
@@ -18,7 +18,7 @@ const Log = (() => {
 
   return {
     add,
-    view: () => m("#log",
+    view: () => m(".log",
       entries.map((e, i) =>
         m(".entry", { key: i, class: e.warn ? "warn" : "" }, [
           m(".t",   e.t + "s"),
@@ -42,42 +42,64 @@ const AppLayout = {
       Log.add(dir, `→ ${route}`);
     }
 
-    return m("#shell", [
+    return m(".shell", [
 
       m("nav", [
         m("span", "go:"),
         m("button", {
-          class: m.route.get() === "/home" ? "active" : "",
+          class: m.cls({ active: m.route.get() === "/home" }),
           onclick: () => m.nav.setRoute("/home"),
         }, "/home"),
         m("button", {
-          class: m.route.get() === "/about" ? "active" : "",
+          class: m.cls({ active: m.route.get() === "/about" }),
           onclick: () => m.nav.setRoute("/about"),
         }, "/about"),
         m("button", {
-          class: m.route.get() === "/item/1" ? "active" : "",
+          class: m.cls({ active: m.route.get() === "/item/1" }),
           onclick: () => m.nav.setRoute("/item/1"),
         }, "/item/1"),
         m("button", {
-          class: m.route.get() === "/item/2" ? "active" : "",
+          class: m.cls({ active: m.route.get() === "/item/2" }),
           onclick: () => m.nav.setRoute("/item/2"),
         }, "/item/2"),
         m("button", {
-          class: m.route.get() === "/item/3" ? "active" : "",
+          class: m.cls({ active: m.route.get() === "/item/3" }),
           onclick: () => m.nav.setRoute("/item/3"),
         }, "/item/3"),
-        m("button", { onclick: () => m.nav.setRoute("/redirect-test") }, "/redirect-test"),
-        m("button", { onclick: () => m.nav.setRoute("/protected")     }, "/protected"),
-        m("button", { onclick: () => m.nav.setRoute("/product/42")                       }, "/product/42"),
-        m("button", { onclick: () => m.nav.setRoute("/product/42", { sort: "price" })    }, "?sort=price"),
-        m("button", { onclick: () => m.nav.setRoute("/product/42", { sort: "name"  })    }, "?sort=name"),
-        m("button", { onclick: () => m.nav.setRoute("/wizard/1")      }, "/wizard/1"),
-        m("button", { onclick: () => m.nav.setRoute("/wizard/2")      }, "/wizard/2"),
-        m("button", { onclick: () => m.nav.setRoute("/wizard/3")      }, "/wizard/3"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/redirect-test" }),
+          onclick: () => m.nav.setRoute("/redirect-test"),
+        }, "/redirect-test"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/protected" || m.route.get() === "/login" }),
+          onclick: () => m.nav.setRoute("/protected"),
+        }, "/protected"),
+        m("button", {
+          class: m.cls({ active: m.route.get()?.startsWith("/product") }),
+          onclick: () => m.nav.setRoute("/product/42"),
+        }, "/product/42"),
+        m("button", { onclick: () => m.nav.setRoute("/product/42", { sort: "price" }) }, "?sort=price"),
+        m("button", { onclick: () => m.nav.setRoute("/product/42", { sort: "name"  }) }, "?sort=name"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/wizard/1" }),
+          onclick: () => m.nav.setRoute("/wizard/1"),
+        }, "/wizard/1"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/wizard/2" }),
+          onclick: () => m.nav.setRoute("/wizard/2"),
+        }, "/wizard/2"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/wizard/3" }),
+          onclick: () => m.nav.setRoute("/wizard/3"),
+        }, "/wizard/3"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/list" }),
+          onclick: () => m.nav.setRoute("/list"),
+        }, "/list"),
         m("button", { onclick: () => history.back()    }, "← back"),
         m("button", { onclick: () => history.forward() }, "forward →"),
 
-        m("#ts-badge", [
+        m(".ts-badge", [
           m("span.dir",   dir),
           m("span.route", m.route.get() ?? ""),
         ]),
@@ -96,9 +118,9 @@ const Home = {
   view() {
     return m(".page", [
       m("h1", "Home"),
-      m("p", "INITIAL on first load."),
-      m("p", "Navigate away and come back to test BACK / FORWARD."),
-      m("p", "Click /home again to test SAME_ROUTE."),
+      m("p.label", "Demonstrates: INITIAL, FORWARD, BACK, SAME_ROUTE"),
+      m("p", "This is the first route — the log should show INITIAL on load."),
+      m("p", "Navigate to any other route and come back — the log should show BACK. Clicking /home while already here should show SAME_ROUTE with no animation."),
     ]);
   }
 };
@@ -107,8 +129,9 @@ const About = {
   view() {
     return m(".page", [
       m("h1", "About"),
-      m("p", "Second top-level route."),
-      m("p", "Tests FORWARD from Home, BACK from Item pages."),
+      m("p.label", "Demonstrates: FORWARD, BACK"),
+      m("p", "A plain second-level route. Navigate here from Home for FORWARD, then use ← back for BACK."),
+      m("p", "Try: Home → About → /item/1 → About — the last step should be BACK since About is already in the history stack."),
     ]);
   }
 };
@@ -117,8 +140,9 @@ const Item = {
   view({ attrs }) {
     return m(".page", [
       m("h1", `Item ${attrs.id}`),
-      m("p", `Parameterized route — each unique id is a distinct history entry.`),
-      m("p", `Try: /item/1 → /item/2 → /item/3 → /item/1 — last should be BACK.`),
+      m("p.label", "Demonstrates: FORWARD, BACK, EXISTING_ROUTE"),
+      m("p", "Each unique id is a distinct history entry by default — no getIdentity override needed."),
+      m("p", "Try: /item/1 → /item/2 → /item/3 → /item/1 — the last step should show BACK since /item/1 is already in the stack at index 0."),
     ]);
   }
 };
@@ -133,15 +157,9 @@ const RedirectTest = {
 };
 
 // ── Auth replace pattern ──────────────────────────────────────────────────────
-//
-// Simulates a 403 → login redirect where login should NOT appear in history.
-// After login, back should return to wherever the user was before /protected,
-// not to /login.
 
 let isAuthed = false;
 
-// Protected route — onmatch checks auth, replaces with /login if not authed.
-// { replace: true } means /login takes the history slot /protected would have had.
 const Protected = {
   onmatch() {
     if (!isAuthed) {
@@ -153,8 +171,9 @@ const Protected = {
   view() {
     return m(".page", [
       m("h1", "Protected Page"),
-      m("p", "You are authenticated. This page is now in history."),
-      m("p", "← back should skip /login and return to wherever you came from."),
+      m("p.label", "Demonstrates: { replace: true } auth redirect pattern"),
+      m("p", "You are authenticated. This page is in history — /login is not."),
+      m("p", "Press ← back — it should skip past /login entirely and return to wherever you were before clicking /protected."),
       m("button", {
         onclick: () => { isAuthed = false; Log.add("AUTH", "logged out"); }
       }, "Log out"),
@@ -162,14 +181,13 @@ const Protected = {
   }
 };
 
-// Login page — transient. Replaced /protected in history.
-// After login, navigate to /protected. Back will skip /login.
 const Login = {
   view() {
     return m(".page", [
       m("h1", "Login"),
-      m("p", "This page replaced /protected in history via { replace: true }."),
-      m("p", "Login also uses { replace: true } so /login itself is removed from history. Back should return to where you were before /protected."),
+      m("p.label", "Demonstrates: { replace: true } — transient page pattern"),
+      m("p", "This page replaced /protected in the history stack via { replace: true }. It is a transient page — it should never appear in back/forward navigation."),
+      m("p", "After logging in, /protected replaces /login in the same stack slot. ← back will skip this page entirely."),
       m("button", {
         onclick: () => {
           isAuthed = true;
@@ -183,9 +201,6 @@ const Login = {
 
 // ── getIdentity demos ─────────────────────────────────────────────────────────
 
-// Product: sort/filter params are ignored for history matching.
-// /product/42, /product/42?sort=price, /product/42?sort=name all resolve
-// to the same identity → SAME_ROUTE, no animation, no new history entry.
 const Product = {
   getIdentity({ route, args }) {
     return `${route}:${args.id}`;
@@ -200,15 +215,14 @@ const Product = {
     const sort = m.route.param("sort") ?? "default";
     return m(".page", [
       m("h1", `Product ${attrs.id}`),
-      m("p", "getIdentity ignores query params — sort changes should be SAME_ROUTE."),
+      m("p.label", "Demonstrates: getIdentity — ignoring query params"),
+      m("p", "getIdentity returns route + id only, ignoring sort/filter params. Changing sort is SAME_ROUTE — no animation, no new history entry, onmatch still fires so data can refresh."),
       m("p", `Current sort: ${sort}`),
+      m("p", "Try: /product/42 → ?sort=price → ?sort=name — all SAME_ROUTE. Then ← back jumps past all sort variants in one step."),
     ]);
   }
 };
 
-// Wizard: each step is a distinct history entry.
-// getIdentity includes step — makes the intent explicit even though
-// it matches the default behavior.
 const Wizard = {
   getIdentity({ route, args }) {
     return `${route}:${args.step}`;
@@ -224,8 +238,9 @@ const Wizard = {
     const step = parseInt(attrs.step);
     return m(".page", [
       m("h1", `Wizard — Step ${step}`),
-      m("p", "Each step is a distinct history entry (FORWARD/BACK between steps)."),
-      m("p", "Check the log — onmatch receives navContext on every navigation."),
+      m("p.label", "Demonstrates: getIdentity + navContext in onmatch"),
+      m("p", "Each step is a distinct history entry. getIdentity includes the step param — each /wizard/:step is tracked separately in the stack."),
+      m("p", "onmatch receives navContext as the fourth argument — check the log to see isForward / isBack on each navigation."),
       step < 3 && m("button", {
         onclick: () => m.nav.setRoute(`/wizard/${step + 1}`)
       }, `Next → Step ${step + 1}`),
@@ -236,6 +251,62 @@ const Wizard = {
     ]);
   }
 };
+
+// ── Scroll restore via onbeforeroutechange ────────────────────────────────────
+//
+// onbeforeroutechange fires on the outbound route just before leaving.
+// We save the scroll position there, then restore it in oncreate when
+// navigating back (navContext.isBack).
+
+const List = (() => {
+  let scrollTop   = 0;
+  let listDom     = null;
+
+  return {
+    onbeforeroutechange({ inbound, outbound }) {
+      if (listDom) {
+        scrollTop = listDom.scrollTop;
+        Log.add("LIST", `saving scroll: ${scrollTop}px`);
+      }
+    },
+
+    onmatch(args, requestedPath, route, nav) {
+      if (nav.isBack) {
+        Log.add("LIST", `returning via BACK — will restore scroll to ${scrollTop}px`);
+      } else {
+        scrollTop = 0;
+        Log.add("LIST", "fresh load — scroll reset");
+      }
+    },
+
+    view() {
+      return m(".page", [
+        m("h1", "Scroll Restore"),
+        m("p.label", "Demonstrates: onbeforeroutechange + navContext scroll restore"),
+        m("p", "Scroll down, navigate away, then come back via ← back. Scroll position should be restored."),
+        m("div", {
+            style: "height:300px; overflow-y:auto; border:1px solid #333; margin-top:12px;",
+            oncreate({ dom }) {
+              listDom = dom;
+              if (scrollTop) {
+                dom.scrollTop = scrollTop;
+                Log.add("LIST", `scroll restored to ${scrollTop}px`);
+              }
+            },
+            onremove() {
+              listDom = null;
+            }
+          },
+          Array.from({ length: 50 }, (_, i) =>
+            m("div", {
+              style: "padding:8px 12px; border-bottom:1px solid #222; font-size:12px; color:#666;"
+            }, `Item ${i + 1}`)
+          )
+        ),
+      ]);
+    }
+  };
+})();
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -253,6 +324,7 @@ m.nav(document.getElementById("app"), "/home", {
   "/login":         Login,
   "/product/:id":   Product,
   "/wizard/:step":  Wizard,
+  "/list":          List,
 }, {
   layoutComponent: AppLayout,
 });
