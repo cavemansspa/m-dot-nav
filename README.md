@@ -92,11 +92,16 @@ The transition state object has the following structure.
 ```
 {
     directionType: // provides information about route change direction. FORWARD, BACKWORD, SAME_ROUTE
-    context:       // user defined data 
+    prevRcState:   // outbound RouteChangeState
+    rcState:       // inbound RouteChangeState
+    context:       // user defined data
 }
 ```
 Your installed layout can use the `transitionState` object to determine how to animate
 between routes.
+
+The `RouteChangeState` object has a `key()` convenience function and the `onmatchParams` property
+which has the path, 
 
 # History
 When clicking on a link using `m.route.Link`, `m-dot-nav` will check to see if

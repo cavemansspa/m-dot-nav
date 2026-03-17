@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "build": "vite build",
-    "dev": "vite build --watch"
+    "dev": "vite build --watch",
+    "demo": "vite --config vite.demo.config.js"
   },
   "devDependencies": {
     "vite": "^5.0.0"
