@@ -261,16 +261,33 @@ function buildRouteResolvers(navstate) {
         }
 
         // Resolve component
-        let resolvedComponent = userRoute.onmatch
-          ? userRoute.onmatch(args, requestedPath, route)
-          : userRoute;
-        if (!resolvedComponent) resolvedComponent = userRoute;
+        let resolvedComponent;
 
-        // Derive transition
+        // Derive transition BEFORE calling user's onmatch so navContext
+        // can be passed as the fourth argument.
         const { path, params } = m.parsePathname(requestedPath);
         const onmatchParams    = { args, params, path, requestedPath, route };
         const identity         = getIdentityForRoute(userRoute, onmatchParams);
         let transitionState    = resolveTransition(navstate.history, onmatchParams, identity);
+        transitionState.context = {};
+
+        // navContext — direction-aware context for user's onmatch
+        const { directionType } = transitionState;
+        const navContext = {
+          directionType,
+          isForward:   directionType === DirectionTypes.FORWARD ||
+            directionType === DirectionTypes.INITIAL,
+          isBack:      directionType === DirectionTypes.BACK    ||
+            directionType === DirectionTypes.EXISTING_ROUTE,
+          isSameRoute: directionType === DirectionTypes.SAME_ROUTE,
+        };
+
+        if (userRoute.onmatch) {
+          resolvedComponent = userRoute.onmatch(args, requestedPath, route, navContext);
+        }
+        if (!resolvedComponent) resolvedComponent = userRoute;
+        if (!resolvedComponent) resolvedComponent = userRoute;
+
         transitionState.context = {};
 
         // Handle replace: remove the entry being replaced
