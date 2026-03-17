@@ -275,9 +275,9 @@ function buildRouteResolvers(navstate) {
         const { directionType } = transitionState;
         const navContext = {
           directionType,
-          isForward:   directionType === DirectionTypes.FORWARD ||
+          isForward:   directionType === DirectionTypes.FORWARD  ||
             directionType === DirectionTypes.INITIAL,
-          isBack:      directionType === DirectionTypes.BACK    ||
+          isBack:      directionType === DirectionTypes.BACK     ||
             directionType === DirectionTypes.EXISTING_ROUTE,
           isSameRoute: directionType === DirectionTypes.SAME_ROUTE,
         };
@@ -286,9 +286,6 @@ function buildRouteResolvers(navstate) {
           resolvedComponent = userRoute.onmatch(args, requestedPath, route, navContext);
         }
         if (!resolvedComponent) resolvedComponent = userRoute;
-        if (!resolvedComponent) resolvedComponent = userRoute;
-
-        transitionState.context = {};
 
         // Handle replace: remove the entry being replaced
         if (navstate.replacingState) {
@@ -480,6 +477,9 @@ export function createNavLayout(hooks = {}) {
       outbound: {}
     };
 
+    // Keyed child — recreated on every route change.
+    // oncreate  → captures inbound DOM
+    // onbeforeremove → holds outbound DOM alive, stores resolver
     function Page() {
       return {
         view({ attrs, children }) {
@@ -501,10 +501,18 @@ export function createNavLayout(hooks = {}) {
 
     return {
       view({ attrs, children }) {
-        const key = attrs.transitionState?.rcState?.key() ?? "initial";
+        const { transitionState } = attrs;
+        const dir = transitionState?.directionType;
+
+        // Only update the key on real route changes — not redraws or same-route.
+        // A stable key prevents spurious Page create/remove cycles.
+        if (dir !== DirectionTypes.REDRAW && dir !== DirectionTypes.SAME_ROUTE) {
+          this._key = transitionState.rcState.key();
+        }
+
         return m("div", {
           style: "display:grid; overflow:hidden; height:100%; width:100%;"
-        }, m(Page, { key }, children));
+        }, [m(Page, { key: this._key }, children)]);
       },
 
       oncreate({ attrs }) {
@@ -519,8 +527,11 @@ export function createNavLayout(hooks = {}) {
 
         transitionState.context = _layoutState;
 
+        // Defer to microtask — by then all child lifecycle hooks
+        // (Page oncreate + onbeforeremove) have already fired synchronously,
+        // so both inbound and outbound are guaranteed to be populated.
         Promise.resolve().then(() => {
-          const { outbound } = _layoutState;
+          const { outbound, inbound } = _layoutState;
 
           if (!outbound["page"]?.dom) return;
 
@@ -586,9 +597,16 @@ export function createSlideLayout(options = {}) {
       const inFrom    = fromRight ?  "100%" : "-100%";
       const outTo     = fromRight ? "-100%" :  "100%";
 
+      // Guard — ensure resolver is only called once
+      let resolved = false;
+      const resolve = () => { if (!resolved) { resolved = true; resolver(); } };
+
+      // Set starting position before first paint
       inDom.style.transform = `translateX(${inFrom})`;
 
-      requestAnimationFrame(() => {
+      // Double rAF — first ensures the starting transform is painted,
+      // second begins the transition so transitionend fires reliably.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
         outDom.style.transition = `transform ${duration}ms ease`;
         outDom.style.transform  = `translateX(${outTo})`;
         inDom.style.transition  = `transform ${duration}ms ease`;
@@ -599,11 +617,11 @@ export function createSlideLayout(options = {}) {
           inDom.removeEventListener("transitionend", te);
           inDom.style.transition = "";
           inDom.style.transform  = "";
-          resolver();
+          resolve();
         });
 
-        setTimeout(resolver, duration + 100); // safety fallback
-      });
+        setTimeout(resolve, duration + 100); // safety fallback
+      }));
     }
   });
 }
