@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
+import { readFileSync } from 'fs'
+
+const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineConfig({
   build: {
@@ -18,7 +21,8 @@ export default defineConfig({
       external: ['mithril'],
       output: {
         globals: { mithril: 'm' },
-        exports: 'named'
+        exports: 'named',
+        banner: `/*! m-dot-nav v${version} | MIT */`,
       }
     }
   },
