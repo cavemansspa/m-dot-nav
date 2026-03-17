@@ -21,7 +21,7 @@ jobs:
           git config user.email "github-actions@github.com"
           git add dist/
           git diff --staged --quiet || git commit -m "chore: build dist [skip ci]"
-          git push origin HEAD:main
+          git push origin HEAD:master
       - name: Update tag to include dist
         run: |
           git tag -f ${{ github.ref_name }}
