@@ -1,513 +1,614 @@
-import {isEqual} from "lodash-es";
-import m from 'mithril';
+import m from "mithril";
 
-window.m = m
+// ─── Minimal Async State Machine ──────────────────────────────────────────────
+//
+// Shared primitive used by both the router coordination machine (sync)
+// and the layout animation machine (async invoke).
+//
+// State definition shape:
+//   {
+//     stateName: {
+//       on:      { EVENT: "targetState" },   // event-driven transitions
+//       invoke:  (ctx) => Promise,           // async work for this state
+//       onDone:  "targetState",              // advance when invoke resolves
+//       onError: "targetState",              // advance when invoke rejects
+//     }
+//   }
 
-m.cls = (def, separator = " ") => {
-    let classes;
-    for (const cls in def) {
-        if (def[cls]) {
-            classes = classes == null ? cls : classes + separator + cls;
-        }
-    }
-    return classes || "";
-};
+function createMachine(states, initial, onChange = () => {}) {
 
-const RouteStates = {
-    UNMOUNTED: 0,
-    MOUNTED: 1,
-    INITIAL_ROUTE: 2
-};
+  let current = initial;
+  let context = {};
+
+  function enter(next, ctx) {
+    current = next;
+    context = { ...context, ...ctx };
+    onChange(current, context);
+
+    const def = states[current];
+    if (!def?.invoke) return;
+
+    def.invoke(context)
+      .then(() => enter(def.onDone  ?? current, {}))
+      .catch(() => enter(def.onError ?? current, {}));
+  }
+
+  return {
+    get current() { return current; },
+    get context() { return context; },
+
+    send(event, payload = {}) {
+      const next = states[current]?.on?.[event];
+      if (next) enter(next, payload);
+    },
+  };
+}
+
+// ─── Direction Types ──────────────────────────────────────────────────────────
 
 export const DirectionTypes = {
-    INITIAL: "INITIAL",
-    FIRST_NAV: "FIRST NAV",
-    SAME_ROUTE: "SAME ROUTE",
-    REDRAW: "REDRAW",
-    BACK: "BACK",
-    FORWARD: "FORWARD",
-    EXISTING_ROUTE: "EXISTING_ROUTE"
+  INITIAL:        "INITIAL",
+  FORWARD:        "FORWARD",
+  BACK:           "BACK",
+  SAME_ROUTE:     "SAME_ROUTE",
+  EXISTING_ROUTE: "EXISTING_ROUTE",
+  REDRAW:         "REDRAW",
 };
 
-//
-// We'll bypass route.set() through m.nav.route.set
-//
-let origRouteDotSet = m.route.set;
-m.route.set = (route, params, options) => {
-    console.warn("BYPASS: ", route, params, options);
-    m.nav.setRoute(route, params, options);
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+m.cls = (def, separator = " ") => {
+  let classes;
+  for (const cls in def) {
+    if (def[cls]) classes = classes == null ? cls : classes + separator + cls;
+  }
+  return classes || "";
 };
-
-let _navstate = {
-    flows: {},
-    routes: {},
-    isMounted: false,
-    historyStack: [],
-    flattenRoutes: undefined,
-    layoutComponent: undefined,
-
-    replacingState: false,
-    isSkipping: false,
-    isRouteChange: false,
-    onmatchCalledCount: 0,
-    currentIndex: 0,
-
-    // TODO -- need to implement
-    fullStack: [],
-    flowStack: [],
-    currentFlow: undefined,
-    currentFlowName: undefined,
-
-};
-
-function _peek(back = 1) {
-
-    let {historyStack} = _navstate;
-    let {length} = historyStack;
-    if (!length) return null;
-    if (back > length) return null;
-
-    return historyStack[length - Math.abs(back)];
-}
-
-function pushOrPop(args, requestedPath, route) {
-    console.log("m.nav::pushOrPop()", {args: args, requestedPath: requestedPath, route: route});
-
-    let {historyStack} = _navstate;
-    let {length} = historyStack;
-    let lastRcState = _peek();
-    let nextToLastRcState = _peek(-2) || {};
-
-    let {path: thePath, params: theParams} = m.parsePathname(requestedPath)
-    console.log("m.nav::pushOrPop() -- start: ", {args: args, params: theParams});
-
-    let idObj = {args: theParams, path: thePath, requestedPath: requestedPath, route: route}
-    console.log("m.nav::pushOrPop() -- idObj: ", idObj);
-
-    let newRcState = RouteChangeState({
-        onmatchParams: idObj
-    })
-
-    if (!length) {
-        console.log("m.nav::pushOrPop()", "INITIAL ROUTE");
-        historyStack.push(newRcState);
-        return {directionType: DirectionTypes.INITIAL, rcState: newRcState}
-    }
-
-    let foundExisting = _navstate.historyStack.find(it => (
-        it.isEqualByPathAndArgs({args: args || {}, path: thePath})
-    ))
-
-    if (foundExisting?.isEqualByPathAndArgs({path: thePath, args: theParams})) {
-
-        let existingIndex = historyStack.indexOf(foundExisting)
-
-        let back = (length - (1 + existingIndex)) * -1
-        back = existingIndex - _navstate.currentIndex
-        console.log("m.nav::pushOrPop()", "FOUND EXISTING ROUTE", {back: back}, foundExisting);
-
-        if(back === 0) {
-            console.log("m.nav::pushOrPop()", "SAME ROUTE 0", foundExisting);
-            _navstate.currentIndex = existingIndex
-            return {directionType: DirectionTypes.SAME_ROUTE, rcState: lastRcState}
-        }
-
-        if(back === -1) {
-            _navstate.currentIndex = existingIndex
-            console.log("m.nav::pushOrPop()", "EXISTING GOING BACK ROUTE");
-            historyStack.pop()
-            return {directionType: DirectionTypes.BACK, rcState: nextToLastRcState, prevRcState: lastRcState}
-        }
-
-        if(back === 1) {
-            _navstate.currentIndex = existingIndex
-            console.log("m.nav::pushOrPop()", "EXISTING GOING FORWARD ROUTE");
-            return {directionType: DirectionTypes.FORWARD, rcState: nextToLastRcState, prevRcState: lastRcState}
-        }
-
-        if(back < 0) {
-            for(let i = back; i < 0; i++) {
-                console.log("m.nav::pushOrPop()", "popping", i);
-                historyStack.pop()
-            }
-        }
-        _navstate.currentIndex = existingIndex
-        return {directionType: DirectionTypes.EXISTING_ROUTE, back: back, rcState: newRcState}
-    }
-
-    _navstate.currentIndex++
-    historyStack.push(newRcState);
-    console.log("m.nav::pushOrPop()", "GOING FORWARD ROUTE", _navstate.currentIndex);
-    return {directionType: DirectionTypes.FORWARD, rcState: newRcState, prevRcState: lastRcState}
-
-}
-
-
-export const RouteChangeState = (config) => {
-
-    if (!config?.onmatchParams) {
-        throw new Error('RouteChangeState() -- onmatchParams required')
-    }
-
-    let _routeChange = {
-        onmatchParams: JSON.parse(JSON.stringify(config.onmatchParams)),
-        anim: undefined,
-        key: genKey()
-    };
-
-    return {
-        debug() {
-            return _routeChange;
-        },
-
-        get onmatchParams() {
-            return _routeChange.onmatchParams
-        },
-
-        key() {
-            return _routeChange.key
-        },
-
-        isEqualByPathAndArgs(pathAndParams) {
-            let {args, route} = _routeChange.onmatchParams
-//             console.log(args, route)
-//             console.log(pathAndParams)
-            return isEqual({args: args || {}, path: route}, pathAndParams)
-        }
-
-    };
-};
-
-window.addEventListener("popstate", function (e) {
-    console.log("m.nav()::popstate() -- ", e);
-});
-window.addEventListener("hashchange", function (e) {
-    console.log("m.nav()::hashchange() -- ", e);
-});
-
-const omEventTarget = new EventTarget();
-
-m.nav = (function () {
-
-    let _nav = function (root, defaultRoute, routes, config) {
-        console.log("m.nav()", root, defaultRoute, routes, config);
-        if (!routes) {
-            throw new Error('m.nav() -- a routes object is required.')
-        }
-        if (!config?.layoutComponent) {
-            throw new Error('m.nav() -- a layout component is required.')
-        }
-
-        _navstate.flows = Object.keys(config.flows || {}).reduce((acc, it) => {
-            acc[it] = Object.assign({}, config.flows[it], {name: it});
-            return acc;
-        }, {});
-
-        _navstate.routes = routes;
-        _navstate.layoutComponent = config.layoutComponent;
-
-        toEnhancedRouteResolvers()
-        m.route(root || document.body, defaultRoute, _navstate.flattenedRouteResolvers);
-        _navstate.isMounted = true;
-    }
-
-    Object.assign(_nav, {
-
-        debug() {
-            return _navstate
-        },
-
-        addEventListener: omEventTarget.addEventListener.bind(omEventTarget),
-        removeEventListener: omEventTarget.removeEventListener.bind(omEventTarget),
-
-        setRoute(route, params, options = {}, anim) {
-            console.log('m.nav.setRoute()', route, params, options, anim)
-
-            // REMINDER: the mithril "popstate" handler hits onmatch() directly bypassing this logic.
-            // TODO -- need to implement handling hashchange event
-
-            let {historyStack} = _navstate;
-
-            // normalizedParams -- converts e.g. {a: 1} to {a: "1"} to support consistent find by path and args.
-            let {params: normalizedParams} = m.parsePathname(m.buildPathname('/fake', params))
-            let pathAndArgs = {args: normalizedParams || {}, path: route};
-
-            let foundExisting = historyStack.find((item) => {
-                return item.isEqualByPathAndArgs(pathAndArgs)
-            });
-
-            let existingIndex = historyStack.indexOf(foundExisting)
-            if (_navstate.currentIndex === existingIndex) {
-                console.log("m.nav.setRoute() -- SAME ROUTE 1", foundExisting);
-                Object.assign(options, {replace: true});
-                origRouteDotSet(route, params, options);
-                return;
-            }
-
-            if (foundExisting?.isEqualByPathAndArgs(pathAndArgs)) {
-                let back = (historyStack.length - (1 + historyStack.indexOf(foundExisting))) * -1
-                back = existingIndex - _navstate.currentIndex
-                console.log("m.nav.setRoute()", "FOUND EXISTING ROUTE", back, foundExisting);
-                if(back < 0) {
-                    history.go(back)
-                    return
-                }
-            }
-
-            if(options?.replace === true) {
-                _navstate.replacingState = true
-            }
-
-            _navstate.anim = anim;
-
-            origRouteDotSet(route, params, options);
-        }
-    })
-
-    return _nav
-
-})()
 
 function genKey() {
-    return (Math.random() * Math.pow(10, 16)).toFixed(0);
+  return (Math.random() * Math.pow(10, 16)).toFixed(0);
+}
+
+function stableStringify(value) {
+  if (value == null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
+  const keys = Object.keys(value).sort();
+  return "{" + keys.map(k => JSON.stringify(k) + ":" + stableStringify(value[k])).join(",") + "}";
+}
+
+// Intentionally narrow: only compares plain JSON-serializable onmatchParams.
+function deepEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null || typeof a !== typeof b) return false;
+  if (typeof a !== "object") return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every(k => deepEqual(a[k], b[k]));
 }
 
 // credit @porsager
 function flattenRoutes(routes, prefix = "") {
-    return Object.keys(routes).reduce((acc, match) => {
-        return typeof routes[match] === "function" ||
-        routes[match].view ||
-        routes[match].onmatch ||
-        routes[match].render
-            ? {...acc, [prefix + match]: routes[match]}
-            : {...acc, ...flattenRoutes(routes[match], prefix + match)};
-    }, {});
+  return Object.keys(routes).reduce((acc, match) => {
+    const route = routes[match];
+    return typeof route === "function" || route.view || route.onmatch || route.render
+      ? { ...acc, [prefix + match]: route }
+      : { ...acc, ...flattenRoutes(route, prefix + match) };
+  }, {});
 }
 
+// ─── Route Identity ───────────────────────────────────────────────────────────
 //
-// We convert all user defined routes to m.nav custom route resolvers
-// This enables us to catch all the navigation details.
-// We will pass the transitionState object to the Layout component via attr
-function toEnhancedRouteResolvers() {
+// Identity answers: "is this the same logical destination?"
+// Distinct from the full onmatchParams — allows apps to:
+//   - treat param changes as SAME_ROUTE (e.g. filter/sort changes)
+//   - treat different URL patterns as the same page
+//
+// A route may define:
+//   getIdentity(onmatchParams) => string | object
+//
+// If omitted, identity defaults to route + params + args.
 
-    _navstate.flattenedRoutes = flattenRoutes(_navstate.routes);
-    let {flattenedRoutes} = _navstate;
+function defaultGetIdentity(onmatchParams) {
+  const { route, params, args } = onmatchParams;
+  return stableStringify({ route, params, args });
+}
 
-    _navstate.flattenedRouteResolvers = Object.keys(flattenedRoutes).reduce(
-        (accum, routeKey) => {
+function getIdentityForRoute(userRoute, onmatchParams) {
+  if (typeof userRoute?.getIdentity === "function") {
+    const id = userRoute.getIdentity(onmatchParams);
+    return typeof id === "string" ? id : stableStringify(id);
+  }
+  return defaultGetIdentity(onmatchParams);
+}
 
-            accum[routeKey] = (function () {
+function getRouteDefForPath(routes, routePath) {
+  return flattenRoutes(routes)[routePath];
+}
 
-                // these vars are accessible by onmatch() and render() scoped per routeKey
-                let theUserDefinedRoute = flattenedRoutes[routeKey];
-                let currentTransitionState
-                let _omValue;
+// ─── RouteChangeState ─────────────────────────────────────────────────────────
+//
+// Immutable snapshot of a resolved route. Stored on the history stack.
 
-                let enhancedRouteResolver = {
+export function RouteChangeState(onmatchParams, identity) {
+  const snapshot = JSON.parse(JSON.stringify(onmatchParams));
+  const key = genKey();
+  return Object.freeze({
+    get onmatchParams() { return snapshot; },
+    get identity()      { return identity; },
+    key() { return key; },
+  });
+}
 
-                    //
-                    // ONMATCH
-                    //
-                    onmatch: (args, requestedPath, route) => {
+// ─── History Stack ────────────────────────────────────────────────────────────
+//
+// Inspectable indexed stack — direction is derivable without destructive pops.
 
-                        console.log("m.nav::onmatch()", routeKey, args, requestedPath, route);
+function createHistoryStack() {
+  let stack = [];
+  let currentIndex = -1;
 
-                        // if user's onmatch calls new route, remove the last route from stack
-                        // as it has effectively been skipped.
-                        if (_navstate.onmatchCalledCount > 0) {
-                            console.log("m.nav::onmatch() -- redirect encountered", routeKey, args, requestedPath, route);
-                            _navstate.historyStack.pop()
-                            _navstate.currentIndex--
-                        }
+  return {
+    get current() { return stack[currentIndex] ?? null; },
+    get length()  { return stack.length; },
+    get index()   { return currentIndex; },
 
-                        // accounts for m.route.sets() in users onmatch()
-                        // mithrils router can potentially call onmatch() several times then render()
-                        _navstate.onmatchCalledCount++
+    findExisting(identity) {
+      const idx = stack.findIndex(e => e.identity === identity);
+      return idx >= 0 ? { entry: stack[idx], index: idx } : null;
+    },
 
-                        let outboundRcState = _peek();
-                        let outBoundRouteResolver =
-                            outboundRcState && _navstate.flattenedRouteResolvers[outboundRcState.onmatchParams.route];
+    push(rcState) {
+      stack = stack.slice(0, currentIndex + 1);
+      stack.push(rcState);
+      currentIndex = stack.length - 1;
+    },
 
-                        if (outBoundRouteResolver?.hasOwnProperty("onbeforeroutechange")) {
+    moveTo(index) {
+      currentIndex = index;
+    },
 
-                            let {path: thePath, params: theParams} = m.parsePathname(requestedPath)
-                            let idObj = {args: theParams, path: thePath, requestedPath: requestedPath, route: route}
+    replaceCurrent(rcState) {
+      stack[currentIndex] = rcState;
+    },
+  };
+}
 
-                            outBoundRouteResolver.onbeforeroutechange({
-                                lastTransitionState: currentTransitionState,
-                                inbound: RouteChangeState({
-                                    onmatchParams: idObj
-                                }),
-                                outbound: outboundRcState
-                            });
-                        }
+// ─── Transition Resolution ────────────────────────────────────────────────────
+//
+// Pure function — derives direction and updates the history stack.
 
-                        if (theUserDefinedRoute.hasOwnProperty("onmatch")) {
-                            // call user defined onmatch()
-                            _omValue = theUserDefinedRoute.onmatch(args, requestedPath, route);
-                        }
+function resolveTransition(history, onmatchParams, identity) {
+  const rcState = RouteChangeState(onmatchParams, identity);
 
-                        if (!_omValue) {
-                            //if no onmatch || the user's onmatch returns null, return route's component
-                            _omValue = theUserDefinedRoute;
-                        }
+  if (history.length === 0) {
+    history.push(rcState);
+    return { directionType: DirectionTypes.INITIAL, rcState };
+  }
 
-                        // FYI -- these occur before render()
-                        // requestAnimationFrame(() => console.log('onmatch::RAF!!!!', JSON.stringify(transitionState)))
-                        // Promise.resolve().then(() => console.log('onmatch::Promise.resolve()!!!!'), JSON.stringify(transitionState))
+  const existing = history.findExisting(identity);
 
-                        currentTransitionState = pushOrPop(args, requestedPath, route)
-                        currentTransitionState.isRouteChange = () => _navstate.onmatchCalledCount > 0
-                        currentTransitionState.context = {}
+  if (existing) {
+    const delta = existing.index - history.index;
+    const prev  = history.current;
+    history.moveTo(existing.index);
 
-                        if(_navstate.replacingState) {
-                            _navstate.currentIndex--
-                            let repIndex = _navstate.historyStack.indexOf(_peek(-2))
-                            _navstate.historyStack.splice(repIndex,1)
-                        }
+    if (delta === 0)  return { directionType: DirectionTypes.SAME_ROUTE,     rcState: existing.entry };
+    if (delta === -1) return { directionType: DirectionTypes.BACK,           rcState: existing.entry, prevRcState: prev };
+    if (delta ===  1) return { directionType: DirectionTypes.FORWARD,        rcState: existing.entry, prevRcState: prev };
+    return             { directionType: DirectionTypes.EXISTING_ROUTE, rcState: existing.entry, prevRcState: prev, delta };
+  }
 
-                        //
-                        // dispatch onbeforeroutechange event
-                        //
-                        const omEventBefore = new CustomEvent("onbeforeroutechange", {
-                            cancelable: true,
-                            detail: {transitionState: currentTransitionState, outbound: outboundRcState}
-                        });
-                        let dispatchResult = omEventTarget.dispatchEvent(omEventBefore);
+  const prev = history.current;
+  history.push(rcState);
+  return { directionType: DirectionTypes.FORWARD, rcState, prevRcState: prev };
+}
 
-                        // TODO -- first attempt at supporting cancellation of a route change.
-                        /*
+// ─── Router Coordination Machine ─────────────────────────────────────────────
+//
+// Replaces the scattered _state flags. Models one onmatch→render cycle.
+//
+//   idle ──ONMATCH──▶ matching ──ONMATCH──▶ matching  (redirect: roll back)
+//                        └──────RENDER──▶  idle
+//
+// Context carries everything render() needs: transitionState, resolvedComponent,
+// anim, and whether a state replace was requested.
 
-                        if (!_navstate.isSkipping) {
-                            const omEventBefore = new CustomEvent("onbeforeroutechange", {
-                                cancelable: true,
-                                detail: {transitionState: currentTransitionState, outbound: outbound}
-                            });
-
-                            let dispatchResult = omEventTarget.dispatchEvent(omEventBefore);
-                            console.log('m.nav::onmatch() dispatchResult', {dispatchResult: dispatchResult})
-
-                            if (!dispatchResult) {
-                                _navstate.isSkipping = true
-                                let {onmatchParams} = outbound.debug()
-                                console.log('m.nav::onmatch() onmatchParams', {onmatchParams: onmatchParams})
-
-                                m.route.set(onmatchParams.path, onmatchParams.data, {replace: true})
-                            } else {
-                                currentTransitionState = pushOrPop(args, requestedPath, route)
-                                currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
-                                currentTransitionState.context = {}
-                            }
-
-                        } else {
-                            console.log('m.nav::onmatch() SKIPPING')
-                            currentTransitionState = {directionType: DirectionTypes.SAME_ROUTE, rcState: outbound}
-                            currentTransitionState.isRouteChange = () => _navstate.onMatchCalled
-                            currentTransitionState.context = {}
-
-                        }
-
-                        */
-
-                        //
-
-                        console.log('m.nav::onmatch() end', {
-                            _omValue: _omValue,
-                            currentTransitionState: currentTransitionState
-                        })
-
-                        return _omValue;
-
-                    },
-
-                    //
-                    // RENDER
-                    //
-                    render: (vnode) => {
-                        console.log("m.nav::render()", routeKey, theUserDefinedRoute, vnode);
-
-
-                        let {layoutComponent} = _navstate;
-
-                        if (!_navstate.onmatchCalledCount) {
-                            currentTransitionState.directionType = DirectionTypes.REDRAW
-                        } else {
-                            // reset to defaults after layout updates
-                            Promise.resolve().then(() => {
-                                _navstate.replacingState = false
-                                _navstate.isSkipping = false
-                                _navstate.anim = undefined
-                            })
-                        }
-                        // reset
-                        _navstate.onmatchCalledCount = 0
-
-                        if (_navstate.anim) {
-                            currentTransitionState.anim = _navstate.anim
-                        }
-                        let _transitionState = currentTransitionState
-
-                        // If returning a component at route, add installed layout
-                        if (!theUserDefinedRoute.hasOwnProperty("render")) {
-                            console.log("m.nav::render()", "COMPONENT, ADDING INSTALLED LAYOUT");
-
-                            vnode.attrs.transitionState = _transitionState
-
-                            return m(
-                                layoutComponent,
-                                {transitionState: _transitionState},
-                                m(_omValue, vnode.attrs)
-                            );
-                        }
-
-                        vnode.attrs.transitionState = _transitionState;
-                        let theVnode = theUserDefinedRoute.render(vnode);
-
-                        // let's user return layout at render()
-                        // TODO - maybe remove supporting this?
-                        if (theVnode.tag === layoutComponent) {
-                            console.warn("m.nav::render()", "Layout not required from route");
-                            theVnode.attrs.transitionState = _transitionState;
-                            return theVnode;
-                        }
-
-                        if (theVnode.hasOwnProperty("items")) {
-                            console.log("m.nav::render()", "HAS ITEMS, USING INSTALLED LAYOUT");
-
-                            return m(layoutComponent, {
-                                cls: theVnode.cls,
-                                layout: theVnode.layout,
-                                items: theVnode.items,
-                                transitionState: _transitionState
-                            });
-                        }
-
-                        // implicit layout, user does not return as root of their render() output.
-                        // called layout component will need to know to handle vnode via children param.
-                        console.log("m.nav::render()", "USING INSTALLED LAYOUT");
-
-                        return m(
-                            layoutComponent,
-                            {transitionState: _transitionState},
-                            theVnode
-                        );
-                    }
-                };
-
-                // Install the user defined "onbeforeroutechange" handler
-                if (theUserDefinedRoute.hasOwnProperty("onbeforeroutechange")) {
-                    enhancedRouteResolver.onbeforeroutechange = theUserDefinedRoute.onbeforeroutechange;
-                }
-
-                return enhancedRouteResolver;
-
-            })();
-
-            return accum;
-
+function createRouterMachine(history) {
+  return createMachine(
+    {
+      idle: {
+        on: { ONMATCH: "matching" },
+      },
+      matching: {
+        on: {
+          // Second ONMATCH before render = redirect inside user's onmatch.
+          // Roll back the speculative history push before re-entering.
+          ONMATCH: "matching",
+          RENDER:  "idle",
         },
-        {}
-    );
+      },
+    },
+    "idle"
+  );
+}
 
-    return _navstate.flattenedRouteResolvers;
+// ─── Route Resolver Enhancement ───────────────────────────────────────────────
+
+function buildRouteResolvers(navstate) {
+  const flat = flattenRoutes(navstate.routes);
+
+  navstate.resolvers = Object.keys(flat).reduce((acc, routeKey) => {
+    const userRoute = flat[routeKey];
+    const router    = navstate.router;
+
+    const resolver = {
+
+      onmatch(args, requestedPath, route) {
+        const wasMatching = router.current === "matching";
+
+        // Redirect detected — roll back the speculative push
+        if (wasMatching) {
+          navstate.history.moveTo(navstate.history.index - 1);
+        }
+
+        // Notify outbound resolver
+        const outbound = navstate.history.current;
+        const outboundResolver = outbound
+          && navstate.resolvers[outbound.onmatchParams.route];
+        if (outboundResolver?.onbeforeroutechange) {
+          outboundResolver.onbeforeroutechange({ outbound, requestedPath });
+        }
+
+        // Resolve component
+        let resolvedComponent = userRoute.onmatch
+          ? userRoute.onmatch(args, requestedPath, route)
+          : userRoute;
+        if (!resolvedComponent) resolvedComponent = userRoute;
+
+        // Derive transition
+        const { path, params } = m.parsePathname(requestedPath);
+        const onmatchParams    = { args, params, path, requestedPath, route };
+        const identity         = getIdentityForRoute(userRoute, onmatchParams);
+        let transitionState    = resolveTransition(navstate.history, onmatchParams, identity);
+        transitionState.context = {};
+
+        // Handle replace: remove the entry being replaced
+        if (navstate.replacingState) {
+          navstate.replacingState = false;
+          const h = navstate.history;
+          h.moveTo(h.index - 1);
+          h.push(RouteChangeState(onmatchParams, identity));
+        }
+
+        navstate.events.dispatchEvent(new CustomEvent("onbeforeroutechange", {
+          cancelable: true,
+          detail: { transitionState, outbound },
+        }));
+
+        // Drive the router machine — carries state forward to render()
+        router.send("ONMATCH", {
+          transitionState,
+          resolvedComponent,
+          anim: navstate.pendingAnim,
+        });
+
+        return resolvedComponent;
+      },
+
+      render(vnode) {
+        const { layoutComponent } = navstate;
+        const { transitionState, anim } = router.context;
+
+        // render() without a preceding onmatch = plain redraw
+        const ts = router.current === "idle"
+          ? { ...transitionState, directionType: DirectionTypes.REDRAW }
+          : transitionState;
+
+        if (anim) ts.anim = anim;
+
+        // Advance machine back to idle, clear pending anim
+        router.send("RENDER");
+        navstate.pendingAnim = undefined;
+
+        vnode.attrs.transitionState = ts;
+
+        if (!userRoute.render) {
+          return m(layoutComponent, { transitionState: ts },
+            m(router.context.resolvedComponent ?? userRoute, vnode.attrs));
+        }
+
+        const output = userRoute.render(vnode);
+
+        if (output.tag === layoutComponent) {
+          output.attrs.transitionState = ts;
+          return output;
+        }
+
+        if (output.items) {
+          return m(layoutComponent, {
+            cls: output.cls,
+            layout: output.layout,
+            items: output.items,
+            transitionState: ts,
+          });
+        }
+
+        return m(layoutComponent, { transitionState: ts }, output);
+      },
+    };
+
+    if (userRoute.onbeforeroutechange) {
+      resolver.onbeforeroutechange = userRoute.onbeforeroutechange;
+    }
+
+    acc[routeKey] = resolver;
+    return acc;
+
+  }, {});
+
+  return navstate.resolvers;
+}
+
+// ─── Internal State ───────────────────────────────────────────────────────────
+
+const _state = {
+  routes:          undefined,
+  layoutComponent: undefined,
+  resolvers:       undefined,
+  history:         createHistoryStack(),
+  router:          null,         // set at init time (needs history)
+  events:          new EventTarget(),
+  pendingAnim:     undefined,
+  replacingState:  false,        // setRoute→onmatch handoff flag
+};
+
+// ─── Intercept m.route.set ────────────────────────────────────────────────────
+//
+// m.route.Link calls m.route.set() internally — intercept so all navigations
+// flow through m.nav.setRoute() for consistent direction tracking.
+
+const _origRouteSet = m.route.set;
+m.route.set = (route, params, options) => m.nav.setRoute(route, params, options);
+
+// ─── m.nav ────────────────────────────────────────────────────────────────────
+
+m.nav = function nav(root, defaultRoute, routes, config) {
+  if (!routes)                  throw new Error("m.nav() — routes is required.");
+  if (!config?.layoutComponent) throw new Error("m.nav() — layoutComponent is required.");
+
+  _state.routes          = routes;
+  _state.layoutComponent = config.layoutComponent;
+  _state.router          = createRouterMachine(_state.history);
+
+  buildRouteResolvers(_state);
+  m.route(root ?? document.body, defaultRoute, _state.resolvers);
+};
+
+Object.assign(m.nav, {
+
+  setRoute(route, params, options = {}, anim) {
+    const requestedPath = m.buildPathname(route, params);
+    const { path, params: normalizedParams } = m.parsePathname(requestedPath);
+    const onmatchParams = {
+      args: normalizedParams ?? {},
+      params: normalizedParams ?? {},
+      path,
+      requestedPath,
+      route,
+    };
+    const userRoute = getRouteDefForPath(_state.routes, route);
+    const identity  = getIdentityForRoute(userRoute, onmatchParams);
+    const existing  = _state.history.findExisting(identity);
+
+    // Already here — refresh in place
+    if (existing && existing.index === _state.history.index) {
+      _origRouteSet(route, params, { ...options, replace: true });
+      return;
+    }
+
+    // Known earlier route — use native traversal
+    if (existing) {
+      const delta = existing.index - _state.history.index;
+      if (delta < 0) {
+        window.history.go(delta);
+        return;
+      }
+    }
+
+    if (options.replace === true) {
+      _state.replacingState = true;
+    }
+
+    _state.pendingAnim = anim;
+    _origRouteSet(route, params, options);
+  },
+
+  addEventListener:    _state.events.addEventListener.bind(_state.events),
+  removeEventListener: _state.events.removeEventListener.bind(_state.events),
+
+  debug() { return { ..._state, routerState: _state.router?.current }; },
+
+});
+
+export default m.nav;
+
+// ─── createNavLayout ──────────────────────────────────────────────────────────
+//
+// Matches the pattern from the original m-dot-nav demo exactly:
+//
+//   - Closure component so _layoutState is stable per instance
+//   - Page child is keyed by rcState.key() — forces create/remove each route change
+//   - onbeforeremove stores both dom AND resolver on outbound slot
+//   - oncreate/onupdate populate transitionState.context = _layoutState
+//   - animate(transitionState) receives full context — call resolver() when done
+//
+// Usage:
+//
+//   const Layout = createNavLayout({
+//     animate(transitionState) {
+//       const { outbound, inbound } = transitionState.context;
+//       // animate outbound["page"].dom out
+//       // call outbound["page"].resolver() when done
+//     }
+//   });
+
+export function createNavLayout(hooks = {}) {
+  const { animate } = hooks;
+
+  return function NavLayout() {
+
+    let _layoutState = {
+      inbound:  {},
+      outbound: {}
+    };
+
+    function Page() {
+      return {
+        view({ attrs, children }) {
+          return m("div", {
+            "data-page-key": attrs.key,
+            style: "grid-area:1/1; height:100%; overflow:hidden;"
+          }, children);
+        },
+        oncreate({ dom }) {
+          _layoutState.inbound["page"] = { dom };
+        },
+        onbeforeremove({ dom }) {
+          return new Promise(resolve => {
+            _layoutState.outbound["page"] = { dom, resolver: resolve };
+          });
+        }
+      };
+    }
+
+    return {
+      view({ attrs, children }) {
+        const key = attrs.transitionState?.rcState?.key() ?? "initial";
+        return m("div", {
+          style: "display:grid; overflow:hidden; height:100%; width:100%;"
+        }, m(Page, { key }, children));
+      },
+
+      oncreate({ attrs }) {
+        attrs.transitionState.context = _layoutState;
+      },
+
+      onupdate({ attrs }) {
+        const { transitionState } = attrs;
+        const dir = transitionState?.directionType;
+
+        if (dir === DirectionTypes.REDRAW || dir === DirectionTypes.SAME_ROUTE) return;
+
+        transitionState.context = _layoutState;
+
+        Promise.resolve().then(() => {
+          const { outbound } = _layoutState;
+
+          if (!outbound["page"]?.dom) return;
+
+          if (animate) {
+            animate(transitionState);
+          } else {
+            outbound["page"].resolver();
+          }
+
+          _layoutState.outbound = {};
+          _layoutState.inbound  = {};
+        });
+      }
+    };
+  };
+}
+
+// ─── createFadeLayout ─────────────────────────────────────────────────────────
+//
+// Fades the outbound page out, then releases it.
+// Inbound is already visible in the same grid cell underneath.
+
+export function createFadeLayout(options = {}) {
+  const duration = options.duration ?? 200;
+
+  return createNavLayout({
+    animate(transitionState) {
+      const { outbound } = transitionState.context;
+      const outDom   = outbound["page"].dom;
+      const resolver = outbound["page"].resolver;
+
+      outDom.style.transition = `opacity ${duration}ms ease`;
+      outDom.style.opacity    = "0";
+
+      outDom.addEventListener("transitionend", function te(e) {
+        if (e.propertyName !== "opacity") return;
+        outDom.removeEventListener("transitionend", te);
+        resolver();
+      });
+
+      setTimeout(resolver, duration + 100); // safety fallback
+    }
+  });
+}
+
+// ─── createSlideLayout ────────────────────────────────────────────────────────
+//
+//   FORWARD / INITIAL — inbound slides in from right, outbound exits left
+//   BACK              — inbound slides in from left,  outbound exits right
+
+export function createSlideLayout(options = {}) {
+  const duration = options.duration ?? 300;
+
+  return createNavLayout({
+    animate(transitionState) {
+      const { outbound, inbound } = transitionState.context;
+      const outDom   = outbound["page"].dom;
+      const inDom    = inbound["page"].dom;
+      const resolver = outbound["page"].resolver;
+      const dir      = transitionState.directionType;
+
+      const fromRight = dir === DirectionTypes.FORWARD || dir === DirectionTypes.INITIAL;
+      const inFrom    = fromRight ?  "100%" : "-100%";
+      const outTo     = fromRight ? "-100%" :  "100%";
+
+      inDom.style.transform = `translateX(${inFrom})`;
+
+      requestAnimationFrame(() => {
+        outDom.style.transition = `transform ${duration}ms ease`;
+        outDom.style.transform  = `translateX(${outTo})`;
+        inDom.style.transition  = `transform ${duration}ms ease`;
+        inDom.style.transform   = "translateX(0)";
+
+        inDom.addEventListener("transitionend", function te(e) {
+          if (e.propertyName !== "transform") return;
+          inDom.removeEventListener("transitionend", te);
+          inDom.style.transition = "";
+          inDom.style.transform  = "";
+          resolver();
+        });
+
+        setTimeout(resolver, duration + 100); // safety fallback
+      });
+    }
+  });
+}
+
+// ─── createCssNavLayout ───────────────────────────────────────────────────────
+//
+// Applies CSS classes for animation — add your own @keyframes.
+// Target [data-page-key] or add classes directly to outbound/inbound doms.
+
+export function createCssNavLayout() {
+  return createNavLayout({
+    animate(transitionState) {
+      const { outbound } = transitionState.context;
+      const outDom   = outbound["page"].dom;
+      const resolver = outbound["page"].resolver;
+
+      outDom.addEventListener("animationend", function ae() {
+        outDom.removeEventListener("animationend", ae);
+        resolver();
+      });
+
+      setTimeout(resolver, 600); // safety fallback
+    }
+  });
 }
