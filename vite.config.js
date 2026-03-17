@@ -17,7 +17,8 @@ export default defineConfig({
     rollupOptions: {
       external: ['mithril'],
       output: {
-        globals: { mithril: 'm' }
+        globals: { mithril: 'm' },
+        exports: 'named'
       }
     }
   },
