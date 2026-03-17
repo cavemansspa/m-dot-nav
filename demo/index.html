@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>m-dot-nav demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: monospace;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .shell {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            min-height: 100vh;
+        }
+
+        nav {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        nav span { color: #666; font-size: 11px; margin-right: 4px; }
+        nav button {
+            padding: 4px 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #ccc;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+        nav button:hover  { background: #333; border-color: #666; }
+        nav button.active { background: #1a3a1a; border-color: #4a8; color: #6f6; }
+
+        .ts-badge {
+            margin-left: auto;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 3px;
+            background: #222;
+            border: 1px solid #333;
+        }
+        .ts-badge .dir   { color: #fa0; }
+        .ts-badge .route { color: #88f; margin-left: 8px; }
+
+        .page    { padding: 32px; }
+        .page h1 { font-size: 20px; margin-bottom: 8px; color: #fff; }
+        .page .label { color: #fa0; font-size: 11px; margin-bottom: 16px; }
+        .page p  { color: #888; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+        .page button {
+            margin-top: 12px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-family: monospace;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #ccc;
+            border-radius: 3px;
+        }
+
+        .log {
+            background: #111;
+            border-top: 1px solid #333;
+            padding: 12px 16px;
+            height: 180px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        .log .entry { padding: 2px 0; border-bottom: 1px solid #1a1a1a; display: flex; gap: 12px; }
+        .log .entry .t   { color: #555; min-width: 60px; }
+        .log .entry .dir { color: #fa0; min-width: 140px; }
+        .log .entry .msg { color: #aaa; }
+        .log .entry.warn .msg { color: #f88; }
+
+        [data-direction] { overflow: hidden; }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./nav-test.js"></script>
+</body>
+</html>
