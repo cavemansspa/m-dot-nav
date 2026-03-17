@@ -252,13 +252,7 @@ function buildRouteResolvers(navstate) {
           navstate.history.moveTo(navstate.history.index - 1);
         }
 
-        // Notify outbound resolver
         const outbound = navstate.history.current;
-        const outboundResolver = outbound
-          && navstate.resolvers[outbound.onmatchParams.route];
-        if (outboundResolver?.onbeforeroutechange) {
-          outboundResolver.onbeforeroutechange({ outbound, requestedPath });
-        }
 
         // Resolve component
         let resolvedComponent;
@@ -270,6 +264,16 @@ function buildRouteResolvers(navstate) {
         const identity         = getIdentityForRoute(userRoute, onmatchParams);
         let transitionState    = resolveTransition(navstate.history, onmatchParams, identity);
         transitionState.context = {};
+
+        // inbound is a plain object — no key generated, no spurious Page cycle
+        const inbound = { onmatchParams };
+
+        // Notify outbound resolver
+        const outboundResolver = outbound
+          && navstate.resolvers[outbound.onmatchParams.route];
+        if (outboundResolver?.onbeforeroutechange) {
+          outboundResolver.onbeforeroutechange({ inbound, outbound, requestedPath });
+        }
 
         // navContext — direction-aware context for user's onmatch
         const { directionType } = transitionState;
@@ -297,14 +301,16 @@ function buildRouteResolvers(navstate) {
 
         navstate.events.dispatchEvent(new CustomEvent("onbeforeroutechange", {
           cancelable: true,
-          detail: { transitionState, outbound },
+          detail: { transitionState, inbound, outbound },
         }));
 
         // Drive the router machine — carries state forward to render()
+        const consumedAnim = navstate.pendingAnim;
+        navstate.pendingAnim = undefined;
         router.send("ONMATCH", {
           transitionState,
           resolvedComponent,
-          anim: navstate.pendingAnim,
+          anim: consumedAnim,
         });
 
         return resolvedComponent;
@@ -321,9 +327,8 @@ function buildRouteResolvers(navstate) {
 
         if (anim) ts.anim = anim;
 
-        // Advance machine back to idle, clear pending anim
+        // Advance machine back to idle
         router.send("RENDER");
-        navstate.pendingAnim = undefined;
 
         vnode.attrs.transitionState = ts;
 
@@ -415,6 +420,10 @@ Object.assign(m.nav, {
     const identity  = getIdentityForRoute(userRoute, onmatchParams);
     const existing  = _state.history.findExisting(identity);
 
+    // Set pendingAnim first — before any early returns so it's always
+    // available to onmatch regardless of which navigation path is taken.
+    _state.pendingAnim = anim;
+
     // Already here — refresh in place
     if (existing && existing.index === _state.history.index) {
       _origRouteSet(route, params, { ...options, replace: true });
@@ -434,7 +443,6 @@ Object.assign(m.nav, {
       _state.replacingState = true;
     }
 
-    _state.pendingAnim = anim;
     _origRouteSet(route, params, options);
   },
 
@@ -535,8 +543,11 @@ export function createNavLayout(hooks = {}) {
 
           if (!outbound["page"]?.dom) return;
 
-          if (animate) {
-            animate(transitionState);
+          // transitionState.anim is a one-off override from setRoute's fourth arg
+          const animFn = transitionState.anim ?? animate;
+
+          if (animFn) {
+            animFn(transitionState);
           } else {
             outbound["page"].resolver();
           }

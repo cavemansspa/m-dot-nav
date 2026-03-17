@@ -121,6 +121,10 @@ const Home = {
       m("p.label", "Demonstrates: INITIAL, FORWARD, BACK, SAME_ROUTE"),
       m("p", "This is the first route — the log should show INITIAL on load."),
       m("p", "Navigate to any other route and come back — the log should show BACK. Clicking /home while already here should show SAME_ROUTE with no animation."),
+      m("button", {
+        style: "margin-top:16px;",
+        onclick: () => m.nav.setRoute("/slideup", null, {}, slideUpAnim)
+      }, "↑ Open slide-up page"),
     ]);
   }
 };
@@ -308,6 +312,77 @@ const List = (() => {
   };
 })();
 
+// ── One-off anim via setRoute fourth argument ─────────────────────────────────
+//
+// These animation functions are passed directly to m.nav.setRoute() as the
+// fourth argument. They override the layout's default animation for that
+// specific navigation only — useful for contextual transitions like a page
+// that slides up from the bottom like a modal/sheet.
+//
+// The function receives transitionState with context.inbound/outbound doms.
+
+function slideUpAnim(transitionState) {
+  const { inbound, outbound } = transitionState.context;
+  const inDom    = inbound["page"].dom;
+  const outDom   = outbound["page"].dom;
+  const resolver = outbound["page"].resolver;
+
+  let resolved = false;
+  const resolve = () => { if (!resolved) { resolved = true; resolver(); } };
+
+  inDom.style.transform = "translateY(100%)";
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    inDom.style.transition  = "transform 300ms ease";
+    inDom.style.transform   = "translateY(0)";
+
+    inDom.addEventListener("transitionend", function te(e) {
+      if (e.propertyName !== "transform") return;
+      inDom.removeEventListener("transitionend", te);
+      inDom.style.transition = "";
+      inDom.style.transform  = "";
+      resolve();
+    });
+
+    setTimeout(resolve, 400);
+  }));
+}
+
+function slideDownAnim(transitionState) {
+  const { inbound, outbound } = transitionState.context;
+  const outDom   = outbound["page"].dom;
+  const resolver = outbound["page"].resolver;
+
+  let resolved = false;
+  const resolve = () => { if (!resolved) { resolved = true; resolver(); } };
+
+  outDom.style.transition = "transform 300ms ease";
+  outDom.style.transform  = "translateY(100%)";
+  outDom.style.zIndex     = "1";
+
+  outDom.addEventListener("transitionend", function te(e) {
+    if (e.propertyName !== "transform") return;
+    outDom.removeEventListener("transitionend", te);
+    resolve();
+  });
+
+  setTimeout(resolve, 400);
+}
+
+const SlideUp = {
+  view() {
+    return m(".page", [
+      m("h1", "Slide Up Page"),
+      m("p.label", "Demonstrates: anim fourth argument to m.nav.setRoute()"),
+      m("p", "This page slid up from the bottom — a one-off animation passed directly to setRoute(), overriding the default slide layout for this navigation only."),
+      m("p", "Press ← back — it slides back down."),
+      m("button", {
+        onclick: () => m.nav.setRoute("/home", null, {}, slideDownAnim)
+      }, "↓ Slide down → /home"),
+    ]);
+  }
+};
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 m.nav.addEventListener("onbeforeroutechange", (e) => {
@@ -325,6 +400,7 @@ m.nav(document.getElementById("app"), "/home", {
   "/product/:id":   Product,
   "/wizard/:step":  Wizard,
   "/list":          List,
+  "/slideup":       SlideUp,
 }, {
   layoutComponent: AppLayout,
 });
