@@ -1,8 +1,8 @@
 import m from "mithril";
-// import { createFadeLayout, createSlideLayout, createCssNavLayout, DirectionTypes } from "./m-dot-nav.js";
-import { createFadeLayout, createSlideLayout, createCssNavLayout, DirectionTypes } from "m-dot-nav";
+// import { createSlideLayout, createCssNavLayout, DirectionTypes } from "./m-dot-nav.js";
+import { createSlideLayout, createCssNavLayout, DirectionTypes } from "m-dot-nav";
 
-const CssLayout = createSlideLayout();
+const CssLayout   = createSlideLayout();
 
 // ── Event log ────────────────────────────────────────────────────────────────
 
@@ -36,8 +36,8 @@ const AppLayout = {
   view({ attrs, children }) {
     const ts  = attrs.transitionState;
     const dir = ts?.directionType ?? "—";
-    const isNested  = m.route.get()?.startsWith("/nested");
-    const isCssAnim = m.route.get()?.startsWith("/cssanim");
+    const isNested   = m.route.get()?.startsWith("/nested");
+    const isCssAnim  = m.route.get()?.startsWith("/cssanim");
 
     if (ts && dir !== DirectionTypes.REDRAW) {
       const route = ts.rcState?.onmatchParams?.route ?? "?";
@@ -232,19 +232,20 @@ const Product = {
     return `${route}:${args.id}`;
   },
   onmatch(args, requestedPath, route, nav) {
-    const msg = nav.isSameRoute ? "↺ SAME_ROUTE — filter/param change, keep UI state"
-      : nav.isBack      ? "↩ BACK — restore state"
-        : "→ FORWARD — fresh load";
+    const msg = nav.isSameRouteChange ? "↺ SAME_ROUTE_CHANGE — params changed, keep UI state"
+      : nav.isSameRoute       ? "↺ SAME_ROUTE — nothing changed"
+        : nav.isBack            ? "↩ BACK — restore state"
+          : "→ FORWARD — fresh load";
     Log.add("PRODUCT", `id ${args.id} — ${msg}`);
   },
   view({ attrs }) {
     const sort = m.route.param("sort") ?? "default";
     return m(".page", [
       m("h1", `Product ${attrs.id}`),
-      m("p.label", "Demonstrates: getIdentity — ignoring query params"),
-      m("p", "getIdentity returns route + id only, ignoring sort/filter params. Changing sort is SAME_ROUTE — no animation, no new history entry, onmatch still fires so data can refresh."),
+      m("p.label", "Demonstrates: getIdentity + SAME_ROUTE_CHANGE"),
+      m("p", "getIdentity returns route + id only, ignoring sort/filter params. Changing sort triggers SAME_ROUTE_CHANGE — onmatch fires so data can refresh, but no page transition occurs."),
       m("p", `Current sort: ${sort}`),
-      m("p", "Try: /product/42 → ?sort=price → ?sort=name — all SAME_ROUTE. Then ← back jumps past all sort variants in one step."),
+      m("p", "Try: /product/42 → ?sort=price → ?sort=name — all SAME_ROUTE_CHANGE in the log. Then ← back jumps past all sort variants in one step."),
     ]);
   }
 };

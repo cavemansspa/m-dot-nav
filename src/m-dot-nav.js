@@ -47,12 +47,13 @@ function createMachine(states, initial, onChange = () => {}) {
 // ─── Direction Types ──────────────────────────────────────────────────────────
 
 export const DirectionTypes = {
-  INITIAL:        "INITIAL",
-  FORWARD:        "FORWARD",
-  BACK:           "BACK",
-  SAME_ROUTE:     "SAME_ROUTE",
-  EXISTING_ROUTE: "EXISTING_ROUTE",
-  REDRAW:         "REDRAW",
+  INITIAL:           "INITIAL",
+  FORWARD:           "FORWARD",
+  BACK:              "BACK",
+  SAME_ROUTE:        "SAME_ROUTE",
+  SAME_ROUTE_CHANGE: "SAME_ROUTE_CHANGE",
+  EXISTING_ROUTE:    "EXISTING_ROUTE",
+  REDRAW:            "REDRAW",
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -193,7 +194,16 @@ function resolveTransition(history, onmatchParams, identity) {
     const prev  = history.current;
     history.moveTo(existing.index);
 
-    if (delta === 0)  return { directionType: DirectionTypes.SAME_ROUTE,     rcState: existing.entry };
+    if (delta === 0) {
+      // Same identity but params may have changed — check onmatchParams
+      const paramsChanged = !deepEqual(existing.entry.onmatchParams, onmatchParams);
+      return {
+        directionType: paramsChanged
+          ? DirectionTypes.SAME_ROUTE_CHANGE
+          : DirectionTypes.SAME_ROUTE,
+        rcState: existing.entry
+      };
+    }
     if (delta === -1) return { directionType: DirectionTypes.BACK,           rcState: existing.entry, prevRcState: prev };
     if (delta ===  1) return { directionType: DirectionTypes.FORWARD,        rcState: existing.entry, prevRcState: prev };
     return             { directionType: DirectionTypes.EXISTING_ROUTE, rcState: existing.entry, prevRcState: prev, delta };
@@ -279,11 +289,12 @@ function buildRouteResolvers(navstate) {
         const { directionType } = transitionState;
         const navContext = {
           directionType,
-          isForward:   directionType === DirectionTypes.FORWARD  ||
+          isForward:         directionType === DirectionTypes.FORWARD  ||
             directionType === DirectionTypes.INITIAL,
-          isBack:      directionType === DirectionTypes.BACK     ||
+          isBack:            directionType === DirectionTypes.BACK     ||
             directionType === DirectionTypes.EXISTING_ROUTE,
-          isSameRoute: directionType === DirectionTypes.SAME_ROUTE,
+          isSameRoute:       directionType === DirectionTypes.SAME_ROUTE,
+          isSameRouteChange: directionType === DirectionTypes.SAME_ROUTE_CHANGE,
         };
 
         if (userRoute.onmatch) {
@@ -531,7 +542,9 @@ export function createNavLayout(hooks = {}) {
         const { transitionState } = attrs;
         const dir = transitionState?.directionType;
 
-        if (dir === DirectionTypes.REDRAW || dir === DirectionTypes.SAME_ROUTE) return;
+        if (dir === DirectionTypes.REDRAW ||
+          dir === DirectionTypes.SAME_ROUTE ||
+          dir === DirectionTypes.SAME_ROUTE_CHANGE) return;
 
         transitionState.context = _layoutState;
 
