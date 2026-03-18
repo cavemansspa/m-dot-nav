@@ -639,15 +639,30 @@ export function createSlideLayout(options = {}) {
 
 // ─── createCssNavLayout ───────────────────────────────────────────────────────
 //
-// Applies CSS classes for animation — add your own @keyframes.
-// Target [data-page-key] or add classes directly to outbound/inbound doms.
+// Pure CSS animation — applies data-nav-anim attributes to both inbound
+// and outbound doms so @keyframes can target them.
+//
+// Attributes set:
+//   outbound: data-nav-anim="out" data-direction="FORWARD|BACK|..."
+//   inbound:  data-nav-anim="in"  data-direction="FORWARD|BACK|..."
+//
+// Example CSS:
+//   [data-nav-anim="out"][data-direction="FORWARD"] { animation: slideOutLeft 0.3s ease forwards; }
+//   [data-nav-anim="in"][data-direction="FORWARD"]  { animation: slideInRight 0.3s ease forwards; }
 
 export function createCssNavLayout() {
   return createNavLayout({
     animate(transitionState) {
-      const { outbound } = transitionState.context;
+      const { outbound, inbound } = transitionState.context;
       const outDom   = outbound["page"].dom;
+      const inDom    = inbound["page"].dom;
       const resolver = outbound["page"].resolver;
+      const dir      = transitionState.directionType;
+
+      outDom.setAttribute("data-nav-anim", "out");
+      outDom.setAttribute("data-direction", dir);
+      inDom.setAttribute("data-nav-anim", "in");
+      inDom.setAttribute("data-direction", dir);
 
       outDom.addEventListener("animationend", function ae() {
         outDom.removeEventListener("animationend", ae);
