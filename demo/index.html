@@ -83,6 +83,32 @@
         .log .entry.warn .msg { color: #f88; }
 
         [data-direction] { overflow: hidden; }
+
+        /* ── CSS-based animation demo ── */
+        /* createCssNavLayout sets data-nav-anim="in|out" and data-direction
+           on both inbound and outbound doms. Target with @keyframes. */
+
+        .css-anim-wrapper [data-nav-anim="out"][data-direction="FORWARD"] {
+            animation: cssSlideOutLeft 0.3s ease forwards;
+        }
+        .css-anim-wrapper [data-nav-anim="in"][data-direction="FORWARD"] {
+            animation: cssSlideInRight 0.3s ease forwards;
+        }
+        .css-anim-wrapper [data-nav-anim="out"][data-direction="BACK"] {
+            animation: cssSlideOutRight 0.3s ease forwards;
+        }
+        .css-anim-wrapper [data-nav-anim="in"][data-direction="BACK"] {
+            animation: cssSlideInLeft 0.3s ease forwards;
+        }
+        .css-anim-wrapper [data-nav-anim="in"][data-direction="INITIAL"] {
+            animation: cssFadeIn 0.3s ease forwards;
+        }
+
+        @keyframes cssSlideOutLeft  { to   { transform: translateX(-100%); } }
+        @keyframes cssSlideOutRight { to   { transform: translateX( 100%); } }
+        @keyframes cssSlideInRight  { from { transform: translateX( 100%); } }
+        @keyframes cssSlideInLeft   { from { transform: translateX(-100%); } }
+        @keyframes cssFadeIn        { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
