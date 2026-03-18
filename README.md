@@ -2,6 +2,8 @@
 
 Navigation wrapper over Mithril's route-resolvers.
 
+[**Live Demo**](https://cavemansspa.github.io/m-dot-nav/) — exercises all features: direction types, getIdentity, navContext, auth redirect, scroll restore, slide/fade/CSS animations, nested routes.
+
 ## Routing vs Navigation
 
 Mithril's [`m.route()`](https://mithril.js.org/route.html) default routing implementation provides a straight-forward
@@ -26,10 +28,10 @@ import m, { createSlideLayout } from "m-dot-nav";
 const Layout = createSlideLayout();
 
 m.nav(document.body, "/home", {
-    "/home":  Home,
-    "/about": About,
+  "/home":  Home,
+  "/about": About,
 }, {
-    layoutComponent: Layout,
+  layoutComponent: Layout,
 });
 ```
 
@@ -56,8 +58,8 @@ m.nav.setRoute("/login", null, { replace: true });
 
 // one-off animation override
 m.nav.setRoute("/modal", null, {}, (transitionState) => {
-    const { inbound, outbound } = transitionState.context;
-    // animate inbound["page"].dom in, call outbound["page"].resolver() when done
+  const { inbound, outbound } = transitionState.context;
+  // animate inbound["page"].dom in, call outbound["page"].resolver() when done
 });
 ```
 
@@ -67,8 +69,8 @@ Subscribe to navigation events. Currently supports `onbeforeroutechange`:
 
 ```js
 m.nav.addEventListener("onbeforeroutechange", (e) => {
-    const { transitionState, inbound, outbound } = e.detail;
-    console.log(transitionState.directionType);
+  const { transitionState, inbound, outbound } = e.detail;
+  console.log(transitionState.directionType);
 });
 ```
 
@@ -80,7 +82,7 @@ Your layout component receives `attrs.transitionState` on every render:
 
 ```js
 {
-    directionType,  // see DirectionTypes below
+  directionType,  // see DirectionTypes below
     rcState,        // RouteChangeState for the current route
     prevRcState,    // RouteChangeState for the previous route (if applicable)
     context,        // shared object for layout ↔ animation communication
@@ -111,23 +113,23 @@ A route can be defined as a **component** (with `view`) or a **route resolver** 
 ```js
 // Component — simplest form
 "/home": {
-    view({ attrs }) { ... }
+  view({ attrs }) { ... }
 }
 
 // Route resolver — for onmatch, render, or both
 "/orders": {
-    onmatch(args, requestedPath, route, navContext) { ... },
-    render(vnode) { ... },
+  onmatch(args, requestedPath, route, navContext) { ... },
+  render(vnode) { ... },
 }
 
 // Either form can also include m-dot-nav additions:
 "/products/:id": {
-    getIdentity(onmatchParams),       // control history matching
+  getIdentity(onmatchParams),       // control history matching
     onbeforeroutechange(changeInfo),  // notified when leaving this route
 
     // then either view() or onmatch()/render() as above
     onmatch(args, requestedPath, route, navContext) { ... },
-    view({ attrs }) { ... },
+  view({ attrs }) { ... },
 }
 ```
 
@@ -137,17 +139,17 @@ A route can be defined as a **component** (with `view`) or a **route resolver** 
 
 ```js
 "/orders": {
-    onmatch(args, requestedPath, route, nav) {
-        if (nav.isBack || nav.isExisting) {
-            restoreFromParams(args);        // returning — URL has prior state
-        } else if (nav.isForward) {
-            resetAndLoad(args);             // fresh navigation
-        } else if (nav.isSameRoute) {
-            // nothing changed — no-op
-        } else if (nav.isSameRouteChange) {
-            refreshData(args);              // params changed, keep UI state
-        }
+  onmatch(args, requestedPath, route, nav) {
+    if (nav.isBack || nav.isExisting) {
+      restoreFromParams(args);        // returning — URL has prior state
+    } else if (nav.isForward) {
+      resetAndLoad(args);             // fresh navigation
+    } else if (nav.isSameRoute) {
+      // nothing changed — no-op
+    } else if (nav.isSameRouteChange) {
+      refreshData(args);              // params changed, keep UI state
     }
+  }
 }
 ```
 
@@ -155,7 +157,7 @@ A route can be defined as a **component** (with `view`) or a **route resolver** 
 
 ```js
 {
-    directionType,        // full DirectionTypes value
+  directionType,        // full DirectionTypes value
     isForward,            // FORWARD or INITIAL
     isBack,               // BACK or EXISTING_ROUTE
     isSameRoute,          // SAME_ROUTE — nothing changed
@@ -172,22 +174,22 @@ Override `getIdentity` when you want different behavior:
 ```js
 // Ignore query params — filter changes stay on the same logical page
 "/products/:id": {
-    getIdentity({ route, args }) {
-        return `${route}:${args.id}`;  // sort/filter params ignored
-    },
-    onmatch(args, path, route, nav) {
-        if (nav.isSameRouteChange) refreshData(args);
-        else resetAndLoad(args);
-    },
-    view({ attrs }) { ... }
+  getIdentity({ route, args }) {
+    return `${route}:${args.id}`;  // sort/filter params ignored
+  },
+  onmatch(args, path, route, nav) {
+    if (nav.isSameRouteChange) refreshData(args);
+    else resetAndLoad(args);
+  },
+  view({ attrs }) { ... }
 }
 
 // Each wizard step is a distinct history entry
 "/wizard/:step": {
-    getIdentity({ route, args }) {
-        return `${route}:${args.step}`;
-    },
-    view({ attrs }) { ... }
+  getIdentity({ route, args }) {
+    return `${route}:${args.step}`;
+  },
+  view({ attrs }) { ... }
 }
 ```
 
@@ -197,12 +199,12 @@ Called on the *outbound* route resolver just before the route changes:
 
 ```js
 "/list": {
-    onbeforeroutechange({ inbound, outbound, requestedPath }) {
-        // inbound.onmatchParams.route  — route you're navigating TO
-        // outbound.onmatchParams.route — route you're leaving
-        saveScrollPosition();
-    },
-    view() { ... }
+  onbeforeroutechange({ inbound, outbound, requestedPath }) {
+    // inbound.onmatchParams.route  — route you're navigating TO
+    // outbound.onmatchParams.route — route you're leaving
+    saveScrollPosition();
+  },
+  view() { ... }
 }
 ```
 
@@ -261,15 +263,15 @@ The primitive all layout factories are built on. Implement your own animation:
 import { createNavLayout } from "m-dot-nav";
 
 const Layout = createNavLayout({
-    animate(transitionState) {
-        const { outbound, inbound } = transitionState.context;
-        const outDom   = outbound["page"].dom;
-        const inDom    = inbound["page"].dom;
-        const resolver = outbound["page"].resolver;
+  animate(transitionState) {
+    const { outbound, inbound } = transitionState.context;
+    const outDom   = outbound["page"].dom;
+    const inDom    = inbound["page"].dom;
+    const resolver = outbound["page"].resolver;
 
-        // animate outDom out and inDom in, then call resolver()
-        // resolver() releases the outbound DOM from the page
-    }
+    // animate outDom out and inDom in, then call resolver()
+    // resolver() releases the outbound DOM from the page
+  }
 });
 ```
 
@@ -281,12 +283,12 @@ You can also write a layout component from scratch — `m-dot-nav` just requires
 
 ```js
 m.nav(document.body, "/home", routes, {
-    layoutComponent: {
-        view({ attrs, children }) {
-            console.log(attrs.transitionState.directionType);
-            return m("div", children);
-        }
+  layoutComponent: {
+    view({ attrs, children }) {
+      console.log(attrs.transitionState.directionType);
+      return m("div", children);
     }
+  }
 });
 ```
 
@@ -298,27 +300,27 @@ When a protected route redirects to login, use `{ replace: true }` on both legs 
 
 ```js
 "/protected": {
-    onmatch() {
-        if (!isAuthed) {
-            m.nav.setRoute("/login", null, { replace: true });
-            // Return a never-resolving Promise to prevent Mithril from rendering
-            // this route. The Promise is immediately eligible for GC since nothing
-            // holds a reference to it — this is an idiomatic Mithril redirect pattern.
-            return new Promise(() => {});
-        }
-    },
-    view() { ... }
+  onmatch() {
+    if (!isAuthed) {
+      m.nav.setRoute("/login", null, { replace: true });
+      // Return a never-resolving Promise to prevent Mithril from rendering
+      // this route. The Promise is immediately eligible for GC since nothing
+      // holds a reference to it — this is an idiomatic Mithril redirect pattern.
+      return new Promise(() => {});
+    }
+  },
+  view() { ... }
 },
 
 "/login": {
-    view() {
-        return m("button", {
-            onclick: () => {
-                isAuthed = true;
-                m.nav.setRoute("/protected", null, { replace: true });
-            }
-        }, "Log in");
-    }
+  view() {
+    return m("button", {
+      onclick: () => {
+        isAuthed = true;
+        m.nav.setRoute("/protected", null, { replace: true });
+      }
+    }, "Log in");
+  }
 }
 ```
 
@@ -332,28 +334,28 @@ Use `onbeforeroutechange` to save scroll position and `navContext.isBack` to res
 
 ```js
 const List = (() => {
-    let scrollTop = 0;
-    let listDom   = null;
+  let scrollTop = 0;
+  let listDom   = null;
 
-    return {
-        onbeforeroutechange() {
-            if (listDom) scrollTop = listDom.scrollTop;
+  return {
+    onbeforeroutechange() {
+      if (listDom) scrollTop = listDom.scrollTop;
+    },
+
+    onmatch(args, path, route, nav) {
+      if (!nav.isBack) scrollTop = 0; // fresh load — reset
+    },
+
+    view() {
+      return m("div", {
+        oncreate({ dom }) {
+          listDom = dom;
+          if (scrollTop) dom.scrollTop = scrollTop;
         },
-
-        onmatch(args, path, route, nav) {
-            if (!nav.isBack) scrollTop = 0; // fresh load — reset
-        },
-
-        view() {
-            return m("div", {
-                oncreate({ dom }) {
-                    listDom = dom;
-                    if (scrollTop) dom.scrollTop = scrollTop;
-                },
-                onremove() { listDom = null; }
-            }, items);
-        }
-    };
+        onremove() { listDom = null; }
+      }, items);
+    }
+  };
 })();
 ```
 
@@ -363,10 +365,10 @@ const List = (() => {
 
 ```js
 m.nav(document.body, "/home", {
-    "/nested": {
-        "/a": { render: () => m(SubLayout, m("div", "/nested/a")) },
-        "/b": { render: () => m(SubLayout, m("div", "/nested/b")) },
-    }
+  "/nested": {
+    "/a": { render: () => m(SubLayout, m("div", "/nested/a")) },
+    "/b": { render: () => m(SubLayout, m("div", "/nested/b")) },
+  }
 }, { layoutComponent: Layout });
 ```
 
