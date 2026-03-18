@@ -1,8 +1,8 @@
 import m from "mithril";
 // import { createSlideLayout, createCssNavLayout, DirectionTypes } from "./m-dot-nav.js";
-import { createSlideLayout, createCssNavLayout, DirectionTypes } from "m-dot-nav";
+import {createSlideLayout, createCssNavLayout, DirectionTypes} from "m-dot-nav";
 
-const CssLayout   = createSlideLayout();
+const CssLayout = createSlideLayout();
 
 // ── Event log ────────────────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ const Log = (() => {
   const t0 = Date.now();
 
   function add(dir, msg, warn = false) {
-    entries.unshift({ t: ((Date.now() - t0) / 1000).toFixed(2), dir, msg, warn });
+    entries.unshift({t: ((Date.now() - t0) / 1000).toFixed(2), dir, msg, warn});
     if (entries.length > 60) entries.pop();
     m.redraw();
   }
@@ -20,8 +20,8 @@ const Log = (() => {
     add,
     view: () => m(".log",
       entries.map((e, i) =>
-        m(".entry", { key: i, class: e.warn ? "warn" : "" }, [
-          m(".t",   e.t + "s"),
+        m(".entry", {key: i, class: e.warn ? "warn" : ""}, [
+          m(".t", e.t + "s"),
           m(".dir", e.dir),
           m(".msg", e.msg),
         ])
@@ -33,11 +33,11 @@ const Log = (() => {
 // ── Layout ───────────────────────────────────────────────────────────────────
 
 const AppLayout = {
-  view({ attrs, children }) {
-    const ts  = attrs.transitionState;
+  view({attrs, children}) {
+    const ts = attrs.transitionState;
     const dir = ts?.directionType ?? "—";
-    const isNested   = m.route.get()?.startsWith("/nested");
-    const isCssAnim  = m.route.get()?.startsWith("/cssanim");
+    const isNested = m.route.get()?.startsWith("/nested");
+    const isCssAnim = m.route.get()?.startsWith("/cssanim");
 
     if (ts && dir !== DirectionTypes.REDRAW) {
       const route = ts.rcState?.onmatchParams?.route ?? "?";
@@ -49,84 +49,84 @@ const AppLayout = {
       m("nav", [
         m("span", "go:"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/home" }),
+          class: m.cls({active: m.route.get() === "/home"}),
           onclick: () => m.nav.setRoute("/home"),
         }, "/home"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/about" }),
+          class: m.cls({active: m.route.get() === "/about"}),
           onclick: () => m.nav.setRoute("/about"),
         }, "/about"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/item/1" }),
+          class: m.cls({active: m.route.get() === "/item/1"}),
           onclick: () => m.nav.setRoute("/item/1"),
         }, "/item/1"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/item/2" }),
+          class: m.cls({active: m.route.get() === "/item/2"}),
           onclick: () => m.nav.setRoute("/item/2"),
         }, "/item/2"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/item/3" }),
+          class: m.cls({active: m.route.get() === "/item/3"}),
           onclick: () => m.nav.setRoute("/item/3"),
         }, "/item/3"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/redirect-test" }),
+          class: m.cls({active: m.route.get() === "/redirect-test"}),
           onclick: () => m.nav.setRoute("/redirect-test"),
         }, "/redirect-test"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/protected" || m.route.get() === "/login" }),
+          class: m.cls({active: m.route.get() === "/protected" || m.route.get() === "/login"}),
           onclick: () => m.nav.setRoute("/protected"),
         }, "/protected"),
         m("button", {
-          class: m.cls({ active: m.route.get()?.startsWith("/product") }),
+          class: m.cls({active: m.route.get()?.startsWith("/product")}),
           onclick: () => m.nav.setRoute("/product/42"),
         }, "/product/42"),
-        m("button", { onclick: () => m.nav.setRoute("/product/42", { sort: "price" }) }, "?sort=price"),
-        m("button", { onclick: () => m.nav.setRoute("/product/42", { sort: "name"  }) }, "?sort=name"),
+        m("button", {onclick: () => m.nav.setRoute("/product/42", {sort: "price"})}, "?sort=price"),
+        m("button", {onclick: () => m.nav.setRoute("/product/42", {sort: "name"})}, "?sort=name"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/wizard/1" }),
+          class: m.cls({active: m.route.get() === "/wizard/1"}),
           onclick: () => m.nav.setRoute("/wizard/1"),
         }, "/wizard/1"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/wizard/2" }),
+          class: m.cls({active: m.route.get() === "/wizard/2"}),
           onclick: () => m.nav.setRoute("/wizard/2"),
         }, "/wizard/2"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/wizard/3" }),
+          class: m.cls({active: m.route.get() === "/wizard/3"}),
           onclick: () => m.nav.setRoute("/wizard/3"),
         }, "/wizard/3"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/list" }),
+          class: m.cls({active: m.route.get() === "/list"}),
           onclick: () => m.nav.setRoute("/list"),
         }, "/list"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/nested/a" }),
+          class: m.cls({active: m.route.get() === "/nested/a"}),
           onclick: () => m.nav.setRoute("/nested/a"),
         }, "/nested/a"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/nested/b" }),
+          class: m.cls({active: m.route.get() === "/nested/b"}),
           onclick: () => m.nav.setRoute("/nested/b"),
         }, "/nested/b"),
         m("button", {
-          class: m.cls({ active: m.route.get() === "/cssanim/a" }),
+          class: m.cls({active: m.route.get() === "/cssanim/a"}),
           onclick: () => m.nav.setRoute("/cssanim/a"),
         }, "/cssanim/a"),
-        m("button", { onclick: () => history.back()    }, "← back"),
-        m("button", { onclick: () => history.forward() }, "forward →"),
+        m("button", {onclick: () => history.back()}, "← back"),
+        m("button", {onclick: () => history.forward()}, "forward →"),
 
         m(".ts-badge", [
-          m("span.dir",   dir),
+          m("span.dir", dir),
           m("span.route", m.route.get() ?? ""),
         ]),
       ]),
 
-      m("div", { style: "display:flex; flex-direction:column; overflow:hidden;" }, [
+      m("div", {style: "display:flex; flex-direction:column; overflow:hidden;"}, [
         isNested ? m("div", {
           style: "padding:6px 16px; background:#1a2a1a; border-bottom:1px solid #2a4a2a; font-size:11px; color:#6f6; line-height:1; flex-shrink:0;"
         }, "sub-layout — stable header for /nested/a and /nested/b") : null,
         isCssAnim
-          ? m("div.css-anim-wrapper", { style: "flex:1; overflow:hidden;" },
-            m(CssAnimLayout, { transitionState: ts }, children))
-          : m(CssLayout, { transitionState: ts }, children),
+          ? m("div.css-anim-wrapper", {style: "flex:1; overflow:hidden;"},
+            m(CssAnimLayout, {transitionState: ts}, children))
+          : m(CssLayout, {transitionState: ts}, children),
       ]),
 
       m(Log),
@@ -163,7 +163,7 @@ const About = {
 };
 
 const Item = {
-  view({ attrs }) {
+  view({attrs}) {
     return m(".page", [
       m("h1", `Item ${attrs.id}`),
       m("p.label", "Demonstrates: FORWARD, BACK, EXISTING_ROUTE"),
@@ -178,7 +178,8 @@ const RedirectTest = {
   onmatch() {
     Log.add("REDIRECT", "onmatch() → redirecting to /about", true);
     m.nav.setRoute("/about");
-    return new Promise(() => {}); // never resolves — lets the redirect win
+    return new Promise(() => {
+    }); // never resolves — lets the redirect win
   }
 };
 
@@ -190,8 +191,9 @@ const Protected = {
   onmatch() {
     if (!isAuthed) {
       Log.add("AUTH", "not authed — replacing with /login", true);
-      m.nav.setRoute("/login", null, { replace: true });
-      return new Promise(() => {}); // never resolves — lets redirect win
+      m.nav.setRoute("/login", null, {replace: true});
+      return new Promise(() => {
+      }); // never resolves — lets redirect win
     }
   },
   view() {
@@ -201,7 +203,10 @@ const Protected = {
       m("p", "You are authenticated. This page is in history — /login is not."),
       m("p", "Press ← back — it should skip past /login entirely and return to wherever you were before clicking /protected."),
       m("button", {
-        onclick: () => { isAuthed = false; Log.add("AUTH", "logged out"); }
+        onclick: () => {
+          isAuthed = false;
+          Log.add("AUTH", "logged out");
+        }
       }, "Log out"),
     ]);
   }
@@ -218,7 +223,7 @@ const Login = {
         onclick: () => {
           isAuthed = true;
           Log.add("AUTH", "logged in — replacing /login with /protected");
-          m.nav.setRoute("/protected", null, { replace: true });
+          m.nav.setRoute("/protected", null, {replace: true});
         }
       }, "Log in → /protected"),
     ]);
@@ -228,17 +233,17 @@ const Login = {
 // ── getIdentity demos ─────────────────────────────────────────────────────────
 
 const Product = {
-  getIdentity({ route, args }) {
+  getIdentity({route, args}) {
     return `${route}:${args.id}`;
   },
   onmatch(args, requestedPath, route, nav) {
     const msg = nav.isSameRouteChange ? "↺ SAME_ROUTE_CHANGE — params changed, keep UI state"
-      : nav.isSameRoute       ? "↺ SAME_ROUTE — nothing changed"
-        : nav.isBack            ? "↩ BACK — restore state"
+      : nav.isSameRoute ? "↺ SAME_ROUTE — nothing changed"
+        : nav.isBack ? "↩ BACK — restore state"
           : "→ FORWARD — fresh load";
     Log.add("PRODUCT", `id ${args.id} — ${msg}`);
   },
-  view({ attrs }) {
+  view({attrs}) {
     const sort = m.route.param("sort") ?? "default";
     return m(".page", [
       m("h1", `Product ${attrs.id}`),
@@ -251,17 +256,17 @@ const Product = {
 };
 
 const Wizard = {
-  getIdentity({ route, args }) {
+  getIdentity({route, args}) {
     return `${route}:${args.step}`;
   },
   onmatch(args, requestedPath, route, nav) {
-    const msg = nav.isBack      ? "↩ BACK — restore state"
-      : nav.isForward   ? "→ FORWARD — fresh load"
+    const msg = nav.isBack ? "↩ BACK — restore state"
+      : nav.isForward ? "→ FORWARD — fresh load"
         : nav.isSameRoute ? "↺ SAME_ROUTE — param change"
           : nav.directionType;
     Log.add("WIZARD", `step ${args.step} — ${msg}`);
   },
-  view({ attrs }) {
+  view({attrs}) {
     const step = parseInt(attrs.step);
     return m(".page", [
       m("h1", `Wizard — Step ${step}`),
@@ -286,11 +291,11 @@ const Wizard = {
 // navigating back (navContext.isBack).
 
 const List = (() => {
-  let scrollTop   = 0;
-  let listDom     = null;
+  let scrollTop = 0;
+  let listDom = null;
 
   return {
-    onbeforeroutechange({ inbound, outbound }) {
+    onbeforeroutechange({inbound, outbound}) {
       if (listDom) {
         scrollTop = listDom.scrollTop;
         Log.add("LIST", `saving scroll: ${scrollTop}px`);
@@ -313,7 +318,7 @@ const List = (() => {
         m("p", "Scroll down, navigate away, then come back via ← back. Scroll position should be restored."),
         m("div", {
             style: "height:300px; overflow-y:auto; border:1px solid #333; margin-top:12px;",
-            oncreate({ dom }) {
+            oncreate({dom}) {
               listDom = dom;
               if (scrollTop) {
                 dom.scrollTop = scrollTop;
@@ -324,7 +329,7 @@ const List = (() => {
               listDom = null;
             }
           },
-          Array.from({ length: 50 }, (_, i) =>
+          Array.from({length: 50}, (_, i) =>
             m("div", {
               style: "padding:8px 12px; border-bottom:1px solid #222; font-size:12px; color:#666;"
             }, `Item ${i + 1}`)
@@ -345,25 +350,30 @@ const List = (() => {
 // The function receives transitionState with context.inbound/outbound doms.
 
 function slideUpAnim(transitionState) {
-  const { inbound, outbound } = transitionState.context;
-  const inDom    = inbound["page"].dom;
-  const outDom   = outbound["page"].dom;
+  const {inbound, outbound} = transitionState.context;
+  const inDom = inbound["page"].dom;
+  const outDom = outbound["page"].dom;
   const resolver = outbound["page"].resolver;
 
   let resolved = false;
-  const resolve = () => { if (!resolved) { resolved = true; resolver(); } };
+  const resolve = () => {
+    if (!resolved) {
+      resolved = true;
+      resolver();
+    }
+  };
 
   inDom.style.transform = "translateY(100%)";
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    inDom.style.transition  = "transform 300ms ease";
-    inDom.style.transform   = "translateY(0)";
+    inDom.style.transition = "transform 300ms ease";
+    inDom.style.transform = "translateY(0)";
 
     inDom.addEventListener("transitionend", function te(e) {
       if (e.propertyName !== "transform") return;
       inDom.removeEventListener("transitionend", te);
       inDom.style.transition = "";
-      inDom.style.transform  = "";
+      inDom.style.transform = "";
       resolve();
     });
 
@@ -372,16 +382,21 @@ function slideUpAnim(transitionState) {
 }
 
 function slideDownAnim(transitionState) {
-  const { inbound, outbound } = transitionState.context;
-  const outDom   = outbound["page"].dom;
+  const {inbound, outbound} = transitionState.context;
+  const outDom = outbound["page"].dom;
   const resolver = outbound["page"].resolver;
 
   let resolved = false;
-  const resolve = () => { if (!resolved) { resolved = true; resolver(); } };
+  const resolve = () => {
+    if (!resolved) {
+      resolved = true;
+      resolver();
+    }
+  };
 
   outDom.style.transition = "transform 300ms ease";
-  outDom.style.transform  = "translateY(100%)";
-  outDom.style.zIndex     = "1";
+  outDom.style.transform = "translateY(100%)";
+  outDom.style.zIndex = "1";
 
   outDom.addEventListener("transitionend", function te(e) {
     if (e.propertyName !== "transform") return;
@@ -449,7 +464,7 @@ const CssAnimA = {
       m("p.label", "Demonstrates: createCssNavLayout — pure CSS @keyframes"),
       m("p", "This transition is driven entirely by CSS. createCssNavLayout sets data-direction on the wrapper div — @keyframes in index.html target it."),
       m("p", "No JS animation code — just CSS selectors like [data-direction='FORWARD'] { animation: slideInRight ... }"),
-      m("button", { onclick: () => m.nav.setRoute("/cssanim/b") }, "→ Page B"),
+      m("button", {onclick: () => m.nav.setRoute("/cssanim/b")}, "→ Page B"),
     ]);
   }
 };
@@ -460,7 +475,7 @@ const CssAnimB = {
       m("h1", "CSS Anim — Page B"),
       m("p.label", "Demonstrates: createCssNavLayout — pure CSS @keyframes"),
       m("p", "Navigating back should use the BACK keyframe (slide in from left)."),
-      m("button", { onclick: () => m.nav.setRoute("/cssanim/a") }, "← Page A"),
+      m("button", {onclick: () => m.nav.setRoute("/cssanim/a")}, "← Page A"),
     ]);
   }
 };
@@ -468,24 +483,24 @@ const CssAnimB = {
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 m.nav.addEventListener("onbeforeroutechange", (e) => {
-  const { transitionState } = e.detail;
+  const {transitionState} = e.detail;
   Log.add("EVENT", `onbeforeroutechange — ${transitionState?.directionType}`);
 });
 
 m.nav(document.getElementById("app"), "/home", {
-  "/home":          Home,
-  "/about":         About,
-  "/item/:id":      Item,
+  "/home": Home,
+  "/about": About,
+  "/item/:id": Item,
   "/redirect-test": RedirectTest,
-  "/protected":     Protected,
-  "/login":         Login,
-  "/product/:id":   Product,
-  "/wizard/:step":  Wizard,
-  "/list":          List,
-  "/slideup":       SlideUp,
-  "/nested":        NestedRoutes,
-  "/cssanim/a":     CssAnimA,
-  "/cssanim/b":     CssAnimB,
+  "/protected": Protected,
+  "/login": Login,
+  "/product/:id": Product,
+  "/wizard/:step": Wizard,
+  "/list": List,
+  "/slideup": SlideUp,
+  "/nested": NestedRoutes,
+  "/cssanim/a": CssAnimA,
+  "/cssanim/b": CssAnimB,
 }, {
   layoutComponent: AppLayout,
 });
