@@ -1,6 +1,6 @@
 import m from "mithril";
-// import { createFadeLayout, createSlideLayout, DirectionTypes } from "./m-dot-nav.js";
-import { createFadeLayout, createSlideLayout, DirectionTypes } from "m-dot-nav";
+// import { createFadeLayout, createSlideLayout, createCssNavLayout, DirectionTypes } from "./m-dot-nav.js";
+import { createFadeLayout, createSlideLayout, createCssNavLayout, DirectionTypes } from "m-dot-nav";
 
 const CssLayout = createSlideLayout();
 
@@ -36,6 +36,8 @@ const AppLayout = {
   view({ attrs, children }) {
     const ts  = attrs.transitionState;
     const dir = ts?.directionType ?? "—";
+    const isNested  = m.route.get()?.startsWith("/nested");
+    const isCssAnim = m.route.get()?.startsWith("/cssanim");
 
     if (ts && dir !== DirectionTypes.REDRAW) {
       const route = ts.rcState?.onmatchParams?.route ?? "?";
@@ -96,6 +98,18 @@ const AppLayout = {
           class: m.cls({ active: m.route.get() === "/list" }),
           onclick: () => m.nav.setRoute("/list"),
         }, "/list"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/nested/a" }),
+          onclick: () => m.nav.setRoute("/nested/a"),
+        }, "/nested/a"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/nested/b" }),
+          onclick: () => m.nav.setRoute("/nested/b"),
+        }, "/nested/b"),
+        m("button", {
+          class: m.cls({ active: m.route.get() === "/cssanim/a" }),
+          onclick: () => m.nav.setRoute("/cssanim/a"),
+        }, "/cssanim/a"),
         m("button", { onclick: () => history.back()    }, "← back"),
         m("button", { onclick: () => history.forward() }, "forward →"),
 
@@ -105,7 +119,15 @@ const AppLayout = {
         ]),
       ]),
 
-      m(CssLayout, { transitionState: ts }, children),
+      m("div", { style: "display:flex; flex-direction:column; overflow:hidden;" }, [
+        isNested ? m("div", {
+          style: "padding:6px 16px; background:#1a2a1a; border-bottom:1px solid #2a4a2a; font-size:11px; color:#6f6; line-height:1; flex-shrink:0;"
+        }, "sub-layout — stable header for /nested/a and /nested/b") : null,
+        isCssAnim
+          ? m("div.css-anim-wrapper", { style: "flex:1; overflow:hidden;" },
+            m(CssAnimLayout, { transitionState: ts }, children))
+          : m(CssLayout, { transitionState: ts }, children),
+      ]),
 
       m(Log),
     ]);
@@ -383,6 +405,65 @@ const SlideUp = {
   }
 };
 
+// ── Nested routes ─────────────────────────────────────────────────────────────
+//
+// flattenRoutes() flattens /nested/a and /nested/b into top-level route keys.
+// The stable sub-layout header lives in AppLayout (fixed key = never recreated).
+// Only the page content below it slides on route change.
+
+const NestedRoutes = {
+  "/a": {
+    view() {
+      return m(".page", [
+        m("h1", "/nested/a"),
+        m("p.label", "Demonstrates: nested routes with stable sub-layout"),
+        m("p", "The green header above is rendered in AppLayout with a fixed key — Mithril never recreates it. Only this content area slides between /nested/a and /nested/b."),
+      ]);
+    }
+  },
+  "/b": {
+    view() {
+      return m(".page", [
+        m("h1", "/nested/b"),
+        m("p.label", "Demonstrates: nested routes with stable sub-layout"),
+        m("p", "Navigate between /nested/a and /nested/b — FORWARD/BACK animations work, sub-layout header stays put."),
+      ]);
+    }
+  },
+};
+
+// ── CSS-based animation ───────────────────────────────────────────────────────
+//
+// createCssNavLayout sets data-direction on the wrapper div.
+// CSS @keyframes target it directly — no JS animation code needed.
+// The wrapper div needs a class so the keyframes are scoped and don't
+// interfere with the main slide layout.
+
+const CssAnimLayout = createCssNavLayout();
+
+const CssAnimA = {
+  view() {
+    return m(".page", [
+      m("h1", "CSS Anim — Page A"),
+      m("p.label", "Demonstrates: createCssNavLayout — pure CSS @keyframes"),
+      m("p", "This transition is driven entirely by CSS. createCssNavLayout sets data-direction on the wrapper div — @keyframes in index.html target it."),
+      m("p", "No JS animation code — just CSS selectors like [data-direction='FORWARD'] { animation: slideInRight ... }"),
+      m("button", { onclick: () => m.nav.setRoute("/cssanim/b") }, "→ Page B"),
+    ]);
+  }
+};
+
+const CssAnimB = {
+  view() {
+    return m(".page", [
+      m("h1", "CSS Anim — Page B"),
+      m("p.label", "Demonstrates: createCssNavLayout — pure CSS @keyframes"),
+      m("p", "Navigating back should use the BACK keyframe (slide in from left)."),
+      m("button", { onclick: () => m.nav.setRoute("/cssanim/a") }, "← Page A"),
+    ]);
+  }
+};
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 m.nav.addEventListener("onbeforeroutechange", (e) => {
@@ -401,6 +482,9 @@ m.nav(document.getElementById("app"), "/home", {
   "/wizard/:step":  Wizard,
   "/list":          List,
   "/slideup":       SlideUp,
+  "/nested":        NestedRoutes,
+  "/cssanim/a":     CssAnimA,
+  "/cssanim/b":     CssAnimB,
 }, {
   layoutComponent: AppLayout,
 });
