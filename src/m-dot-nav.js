@@ -15,27 +15,32 @@ import m from "mithril";
 //     }
 //   }
 
-function createMachine(states, initial, onChange = () => {}) {
+function createMachine(states, initial, onChange = () => {
+}) {
 
   let current = initial;
   let context = {};
 
   function enter(next, ctx) {
     current = next;
-    context = { ...context, ...ctx };
+    context = {...context, ...ctx};
     onChange(current, context);
 
     const def = states[current];
     if (!def?.invoke) return;
 
     def.invoke(context)
-      .then(() => enter(def.onDone  ?? current, {}))
+      .then(() => enter(def.onDone ?? current, {}))
       .catch(() => enter(def.onError ?? current, {}));
   }
 
   return {
-    get current() { return current; },
-    get context() { return context; },
+    get current() {
+      return current;
+    },
+    get context() {
+      return context;
+    },
 
     send(event, payload = {}) {
       const next = states[current]?.on?.[event];
@@ -47,13 +52,13 @@ function createMachine(states, initial, onChange = () => {}) {
 // ─── Direction Types ──────────────────────────────────────────────────────────
 
 export const DirectionTypes = {
-  INITIAL:           "INITIAL",
-  FORWARD:           "FORWARD",
-  BACK:              "BACK",
-  SAME_ROUTE:        "SAME_ROUTE",
+  INITIAL: "INITIAL",
+  FORWARD: "FORWARD",
+  BACK: "BACK",
+  SAME_ROUTE: "SAME_ROUTE",
   SAME_ROUTE_CHANGE: "SAME_ROUTE_CHANGE",
-  EXISTING_ROUTE:    "EXISTING_ROUTE",
-  REDRAW:            "REDRAW",
+  EXISTING_ROUTE: "EXISTING_ROUTE",
+  REDRAW: "REDRAW",
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -93,8 +98,8 @@ function flattenRoutes(routes, prefix = "") {
   return Object.keys(routes).reduce((acc, match) => {
     const route = routes[match];
     return typeof route === "function" || route.view || route.onmatch || route.render
-      ? { ...acc, [prefix + match]: route }
-      : { ...acc, ...flattenRoutes(route, prefix + match) };
+      ? {...acc, [prefix + match]: route}
+      : {...acc, ...flattenRoutes(route, prefix + match)};
   }, {});
 }
 
@@ -111,8 +116,8 @@ function flattenRoutes(routes, prefix = "") {
 // If omitted, identity defaults to route + params + args.
 
 function defaultGetIdentity(onmatchParams) {
-  const { route, params, args } = onmatchParams;
-  return stableStringify({ route, params, args });
+  const {route, params, args} = onmatchParams;
+  return stableStringify({route, params, args});
 }
 
 function getIdentityForRoute(userRoute, onmatchParams) {
@@ -135,9 +140,15 @@ export function RouteChangeState(onmatchParams, identity) {
   const snapshot = JSON.parse(JSON.stringify(onmatchParams));
   const key = genKey();
   return Object.freeze({
-    get onmatchParams() { return snapshot; },
-    get identity()      { return identity; },
-    key() { return key; },
+    get onmatchParams() {
+      return snapshot;
+    },
+    get identity() {
+      return identity;
+    },
+    key() {
+      return key;
+    },
   });
 }
 
@@ -150,13 +161,19 @@ function createHistoryStack() {
   let currentIndex = -1;
 
   return {
-    get current() { return stack[currentIndex] ?? null; },
-    get length()  { return stack.length; },
-    get index()   { return currentIndex; },
+    get current() {
+      return stack[currentIndex] ?? null;
+    },
+    get length() {
+      return stack.length;
+    },
+    get index() {
+      return currentIndex;
+    },
 
     findExisting(identity) {
       const idx = stack.findIndex(e => e.identity === identity);
-      return idx >= 0 ? { entry: stack[idx], index: idx } : null;
+      return idx >= 0 ? {entry: stack[idx], index: idx} : null;
     },
 
     push(rcState) {
@@ -184,14 +201,14 @@ function resolveTransition(history, onmatchParams, identity) {
 
   if (history.length === 0) {
     history.push(rcState);
-    return { directionType: DirectionTypes.INITIAL, rcState };
+    return {directionType: DirectionTypes.INITIAL, rcState};
   }
 
   const existing = history.findExisting(identity);
 
   if (existing) {
     const delta = existing.index - history.index;
-    const prev  = history.current;
+    const prev = history.current;
     history.moveTo(existing.index);
 
     if (delta === 0) {
@@ -204,14 +221,14 @@ function resolveTransition(history, onmatchParams, identity) {
         rcState: existing.entry
       };
     }
-    if (delta === -1) return { directionType: DirectionTypes.BACK,           rcState: existing.entry, prevRcState: prev };
-    if (delta ===  1) return { directionType: DirectionTypes.FORWARD,        rcState: existing.entry, prevRcState: prev };
-    return             { directionType: DirectionTypes.EXISTING_ROUTE, rcState: existing.entry, prevRcState: prev, delta };
+    if (delta === -1) return {directionType: DirectionTypes.BACK, rcState: existing.entry, prevRcState: prev};
+    if (delta === 1) return {directionType: DirectionTypes.FORWARD, rcState: existing.entry, prevRcState: prev};
+    return {directionType: DirectionTypes.EXISTING_ROUTE, rcState: existing.entry, prevRcState: prev, delta};
   }
 
   const prev = history.current;
   history.push(rcState);
-  return { directionType: DirectionTypes.FORWARD, rcState, prevRcState: prev };
+  return {directionType: DirectionTypes.FORWARD, rcState, prevRcState: prev};
 }
 
 // ─── Router Coordination Machine ─────────────────────────────────────────────
@@ -228,14 +245,14 @@ function createRouterMachine(history) {
   return createMachine(
     {
       idle: {
-        on: { ONMATCH: "matching" },
+        on: {ONMATCH: "matching"},
       },
       matching: {
         on: {
           // Second ONMATCH before render = redirect inside user's onmatch.
           // Roll back the speculative history push before re-entering.
           ONMATCH: "matching",
-          RENDER:  "idle",
+          RENDER: "idle",
         },
       },
     },
@@ -250,7 +267,7 @@ function buildRouteResolvers(navstate) {
 
   navstate.resolvers = Object.keys(flat).reduce((acc, routeKey) => {
     const userRoute = flat[routeKey];
-    const router    = navstate.router;
+    const router = navstate.router;
 
     const resolver = {
 
@@ -269,31 +286,31 @@ function buildRouteResolvers(navstate) {
 
         // Derive transition BEFORE calling user's onmatch so navContext
         // can be passed as the fourth argument.
-        const { path, params } = m.parsePathname(requestedPath);
-        const onmatchParams    = { args, params, path, requestedPath, route };
-        const identity         = getIdentityForRoute(userRoute, onmatchParams);
-        let transitionState    = resolveTransition(navstate.history, onmatchParams, identity);
+        const {path, params} = m.parsePathname(requestedPath);
+        const onmatchParams = {args, params, path, requestedPath, route};
+        const identity = getIdentityForRoute(userRoute, onmatchParams);
+        let transitionState = resolveTransition(navstate.history, onmatchParams, identity);
         transitionState.context = {};
 
         // inbound is a plain object — no key generated, no spurious Page cycle
-        const inbound = { onmatchParams };
+        const inbound = {onmatchParams};
 
         // Notify outbound resolver
         const outboundResolver = outbound
           && navstate.resolvers[outbound.onmatchParams.route];
         if (outboundResolver?.onbeforeroutechange) {
-          outboundResolver.onbeforeroutechange({ inbound, outbound, requestedPath });
+          outboundResolver.onbeforeroutechange({inbound, outbound, requestedPath});
         }
 
         // navContext — direction-aware context for user's onmatch
-        const { directionType } = transitionState;
+        const {directionType} = transitionState;
         const navContext = {
           directionType,
-          isForward:         directionType === DirectionTypes.FORWARD  ||
+          isForward: directionType === DirectionTypes.FORWARD ||
             directionType === DirectionTypes.INITIAL,
-          isBack:            directionType === DirectionTypes.BACK     ||
+          isBack: directionType === DirectionTypes.BACK ||
             directionType === DirectionTypes.EXISTING_ROUTE,
-          isSameRoute:       directionType === DirectionTypes.SAME_ROUTE,
+          isSameRoute: directionType === DirectionTypes.SAME_ROUTE,
           isSameRouteChange: directionType === DirectionTypes.SAME_ROUTE_CHANGE,
         };
 
@@ -312,7 +329,7 @@ function buildRouteResolvers(navstate) {
 
         navstate.events.dispatchEvent(new CustomEvent("onbeforeroutechange", {
           cancelable: true,
-          detail: { transitionState, inbound, outbound },
+          detail: {transitionState, inbound, outbound},
         }));
 
         // Drive the router machine — carries state forward to render()
@@ -328,12 +345,12 @@ function buildRouteResolvers(navstate) {
       },
 
       render(vnode) {
-        const { layoutComponent } = navstate;
-        const { transitionState, anim } = router.context;
+        const {layoutComponent} = navstate;
+        const {transitionState, anim} = router.context;
 
         // render() without a preceding onmatch = plain redraw
         const ts = router.current === "idle"
-          ? { ...transitionState, directionType: DirectionTypes.REDRAW }
+          ? {...transitionState, directionType: DirectionTypes.REDRAW}
           : transitionState;
 
         if (anim) ts.anim = anim;
@@ -344,7 +361,7 @@ function buildRouteResolvers(navstate) {
         vnode.attrs.transitionState = ts;
 
         if (!userRoute.render) {
-          return m(layoutComponent, { transitionState: ts },
+          return m(layoutComponent, {transitionState: ts},
             m(router.context.resolvedComponent ?? userRoute, vnode.attrs));
         }
 
@@ -364,7 +381,7 @@ function buildRouteResolvers(navstate) {
           });
         }
 
-        return m(layoutComponent, { transitionState: ts }, output);
+        return m(layoutComponent, {transitionState: ts}, output);
       },
     };
 
@@ -383,14 +400,14 @@ function buildRouteResolvers(navstate) {
 // ─── Internal State ───────────────────────────────────────────────────────────
 
 const _state = {
-  routes:          undefined,
+  routes: undefined,
   layoutComponent: undefined,
-  resolvers:       undefined,
-  history:         createHistoryStack(),
-  router:          null,         // set at init time (needs history)
-  events:          new EventTarget(),
-  pendingAnim:     undefined,
-  replacingState:  false,        // setRoute→onmatch handoff flag
+  resolvers: undefined,
+  history: createHistoryStack(),
+  router: null,         // set at init time (needs history)
+  events: new EventTarget(),
+  pendingAnim: undefined,
+  replacingState: false,        // setRoute→onmatch handoff flag
 };
 
 // ─── Intercept m.route.set ────────────────────────────────────────────────────
@@ -404,12 +421,12 @@ m.route.set = (route, params, options) => m.nav.setRoute(route, params, options)
 // ─── m.nav ────────────────────────────────────────────────────────────────────
 
 m.nav = function nav(root, defaultRoute, routes, config) {
-  if (!routes)                  throw new Error("m.nav() — routes is required.");
+  if (!routes) throw new Error("m.nav() — routes is required.");
   if (!config?.layoutComponent) throw new Error("m.nav() — layoutComponent is required.");
 
-  _state.routes          = routes;
+  _state.routes = routes;
   _state.layoutComponent = config.layoutComponent;
-  _state.router          = createRouterMachine(_state.history);
+  _state.router = createRouterMachine(_state.history);
 
   buildRouteResolvers(_state);
   m.route(root ?? document.body, defaultRoute, _state.resolvers);
@@ -419,7 +436,7 @@ Object.assign(m.nav, {
 
   setRoute(route, params, options = {}, anim) {
     const requestedPath = m.buildPathname(route, params);
-    const { path, params: normalizedParams } = m.parsePathname(requestedPath);
+    const {path, params: normalizedParams} = m.parsePathname(requestedPath);
     const onmatchParams = {
       args: normalizedParams ?? {},
       params: normalizedParams ?? {},
@@ -428,8 +445,8 @@ Object.assign(m.nav, {
       route,
     };
     const userRoute = getRouteDefForPath(_state.routes, route);
-    const identity  = getIdentityForRoute(userRoute, onmatchParams);
-    const existing  = _state.history.findExisting(identity);
+    const identity = getIdentityForRoute(userRoute, onmatchParams);
+    const existing = _state.history.findExisting(identity);
 
     // Set pendingAnim first — before any early returns so it's always
     // available to onmatch regardless of which navigation path is taken.
@@ -437,7 +454,7 @@ Object.assign(m.nav, {
 
     // Already here — refresh in place
     if (existing && existing.index === _state.history.index) {
-      _origRouteSet(route, params, { ...options, replace: true });
+      _origRouteSet(route, params, {...options, replace: true});
       return;
     }
 
@@ -457,10 +474,12 @@ Object.assign(m.nav, {
     _origRouteSet(route, params, options);
   },
 
-  addEventListener:    _state.events.addEventListener.bind(_state.events),
+  addEventListener: _state.events.addEventListener.bind(_state.events),
   removeEventListener: _state.events.removeEventListener.bind(_state.events),
 
-  debug() { return { ..._state, routerState: _state.router?.current }; },
+  debug() {
+    return {..._state, routerState: _state.router?.current};
+  },
 
 });
 
@@ -487,12 +506,12 @@ export default m.nav;
 //   });
 
 export function createNavLayout(hooks = {}) {
-  const { animate } = hooks;
+  const {animate} = hooks;
 
   return function NavLayout() {
 
     let _layoutState = {
-      inbound:  {},
+      inbound: {},
       outbound: {}
     };
 
@@ -501,26 +520,26 @@ export function createNavLayout(hooks = {}) {
     // onbeforeremove → holds outbound DOM alive, stores resolver
     function Page() {
       return {
-        view({ attrs, children }) {
+        view({attrs, children}) {
           return m("div", {
             "data-page-key": attrs.key,
             style: "grid-area:1/1; height:100%; overflow:hidden;"
           }, children);
         },
-        oncreate({ dom }) {
-          _layoutState.inbound["page"] = { dom };
+        oncreate({dom}) {
+          _layoutState.inbound["page"] = {dom};
         },
-        onbeforeremove({ dom }) {
+        onbeforeremove({dom}) {
           return new Promise(resolve => {
-            _layoutState.outbound["page"] = { dom, resolver: resolve };
+            _layoutState.outbound["page"] = {dom, resolver: resolve};
           });
         }
       };
     }
 
     return {
-      view({ attrs, children }) {
-        const { transitionState } = attrs;
+      view({attrs, children}) {
+        const {transitionState} = attrs;
         const dir = transitionState?.directionType;
 
         // Only update the key on real route changes — not redraws or same-route.
@@ -531,15 +550,15 @@ export function createNavLayout(hooks = {}) {
 
         return m("div", {
           style: "display:grid; overflow:hidden; height:100%; width:100%;"
-        }, [m(Page, { key: this._key }, children)]);
+        }, [m(Page, {key: this._key}, children)]);
       },
 
-      oncreate({ attrs }) {
+      oncreate({attrs}) {
         attrs.transitionState.context = _layoutState;
       },
 
-      onupdate({ attrs }) {
-        const { transitionState } = attrs;
+      onupdate({attrs}) {
+        const {transitionState} = attrs;
         const dir = transitionState?.directionType;
 
         if (dir === DirectionTypes.REDRAW ||
@@ -552,7 +571,7 @@ export function createNavLayout(hooks = {}) {
         // (Page oncreate + onbeforeremove) have already fired synchronously,
         // so both inbound and outbound are guaranteed to be populated.
         Promise.resolve().then(() => {
-          const { outbound, inbound } = _layoutState;
+          const {outbound, inbound} = _layoutState;
 
           if (!outbound["page"]?.dom) return;
 
@@ -566,7 +585,7 @@ export function createNavLayout(hooks = {}) {
           }
 
           _layoutState.outbound = {};
-          _layoutState.inbound  = {};
+          _layoutState.inbound = {};
         });
       }
     };
@@ -583,12 +602,12 @@ export function createFadeLayout(options = {}) {
 
   return createNavLayout({
     animate(transitionState) {
-      const { outbound } = transitionState.context;
-      const outDom   = outbound["page"].dom;
+      const {outbound} = transitionState.context;
+      const outDom = outbound["page"].dom;
       const resolver = outbound["page"].resolver;
 
       outDom.style.transition = `opacity ${duration}ms ease`;
-      outDom.style.opacity    = "0";
+      outDom.style.opacity = "0";
 
       outDom.addEventListener("transitionend", function te(e) {
         if (e.propertyName !== "opacity") return;
@@ -611,19 +630,24 @@ export function createSlideLayout(options = {}) {
 
   return createNavLayout({
     animate(transitionState) {
-      const { outbound, inbound } = transitionState.context;
-      const outDom   = outbound["page"].dom;
-      const inDom    = inbound["page"].dom;
+      const {outbound, inbound} = transitionState.context;
+      const outDom = outbound["page"].dom;
+      const inDom = inbound["page"].dom;
       const resolver = outbound["page"].resolver;
-      const dir      = transitionState.directionType;
+      const dir = transitionState.directionType;
 
       const fromRight = dir === DirectionTypes.FORWARD || dir === DirectionTypes.INITIAL;
-      const inFrom    = fromRight ?  "100%" : "-100%";
-      const outTo     = fromRight ? "-100%" :  "100%";
+      const inFrom = fromRight ? "100%" : "-100%";
+      const outTo = fromRight ? "-100%" : "100%";
 
       // Guard — ensure resolver is only called once
       let resolved = false;
-      const resolve = () => { if (!resolved) { resolved = true; resolver(); } };
+      const resolve = () => {
+        if (!resolved) {
+          resolved = true;
+          resolver();
+        }
+      };
 
       // Set starting position before first paint
       inDom.style.transform = `translateX(${inFrom})`;
@@ -632,15 +656,15 @@ export function createSlideLayout(options = {}) {
       // second begins the transition so transitionend fires reliably.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         outDom.style.transition = `transform ${duration}ms ease`;
-        outDom.style.transform  = `translateX(${outTo})`;
-        inDom.style.transition  = `transform ${duration}ms ease`;
-        inDom.style.transform   = "translateX(0)";
+        outDom.style.transform = `translateX(${outTo})`;
+        inDom.style.transition = `transform ${duration}ms ease`;
+        inDom.style.transform = "translateX(0)";
 
         inDom.addEventListener("transitionend", function te(e) {
           if (e.propertyName !== "transform") return;
           inDom.removeEventListener("transitionend", te);
           inDom.style.transition = "";
-          inDom.style.transform  = "";
+          inDom.style.transform = "";
           resolve();
         });
 
@@ -666,11 +690,11 @@ export function createSlideLayout(options = {}) {
 export function createCssNavLayout() {
   return createNavLayout({
     animate(transitionState) {
-      const { outbound, inbound } = transitionState.context;
-      const outDom   = outbound["page"].dom;
-      const inDom    = inbound["page"].dom;
+      const {outbound, inbound} = transitionState.context;
+      const outDom = outbound["page"].dom;
+      const inDom = inbound["page"].dom;
       const resolver = outbound["page"].resolver;
-      const dir      = transitionState.directionType;
+      const dir = transitionState.directionType;
 
       outDom.setAttribute("data-nav-anim", "out");
       outDom.setAttribute("data-direction", dir);
