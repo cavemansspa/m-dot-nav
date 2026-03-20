@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}  # checkout the updated tag with dist included
+          ref: ${{ github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -45,11 +45,23 @@ jobs:
 
       - run: npm install
 
-      - name: Build demo
+      - name: Build nav-test demo
         run: npx vite build --config vite.demo.config.js
 
-      - name: Deploy to GitHub Pages
+      - name: Build Wavelength demo
+        run: npx vite build --config vite.wavelength.config.js
+
+      - name: Deploy nav-test to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./demo/dist
+          keep_files: true
+
+      - name: Deploy Wavelength to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./wavelength/dist
+          destination_dir: wavelength
+          keep_files: true

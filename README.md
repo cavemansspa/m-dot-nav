@@ -5,6 +5,9 @@ Navigation wrapper over Mithril's route-resolvers.
 [**Live Demo**](https://cavemansspa.github.io/m-dot-nav/) — exercises all features: direction types, getIdentity,
 navContext, auth redirect, scroll restore, slide/fade/CSS animations, nested routes.
 
+[**Wavelength Demo**](https://cavemansspa.github.io/m-dot-nav/wavelength/) — mobile music app built on m-dot-nav,
+demonstrating `createMobileLayout` with tab fade + drill-down slide, Now Playing sheet, mini player, and scroll restore.
+
 ## Routing vs Navigation
 
 Mithril's [`m.route()`](https://mithril.js.org/route.html) default routing implementation provides a straight-forward
