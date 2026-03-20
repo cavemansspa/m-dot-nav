@@ -674,7 +674,84 @@ export function createSlideLayout(options = {}) {
   });
 }
 
-// ─── createCssNavLayout ───────────────────────────────────────────────────────
+// ─── createMobileLayout ───────────────────────────────────────────────────────
+//
+// Combined layout for mobile app patterns:
+//   - Tab root → tab root : fade (teleporting to a new section)
+//   - All other navigations : horizontal slide (drilling into hierarchy)
+//
+// tabRoots: array of route patterns that are top-level tab destinations.
+//
+// Usage:
+//   const Layout = createMobileLayout({ tabRoots: ["/library", "/browse"] });
+
+export function createMobileLayout(options = {}) {
+  const tabRoots = options.tabRoots ?? [];
+  const duration = options.duration ?? 300;
+  const fadeDuration = options.fadeDuration ?? 180;
+
+  function isTabSwitch(transitionState) {
+    const inRoute = transitionState.rcState?.onmatchParams?.route;
+    const outRoute = transitionState.prevRcState?.onmatchParams?.route;
+    return tabRoots.includes(inRoute) && tabRoots.includes(outRoute);
+  }
+
+  return createNavLayout({
+    animate(transitionState) {
+      const {outbound, inbound} = transitionState.context;
+      const outDom = outbound["page"].dom;
+      const inDom = inbound["page"].dom;
+      const resolver = outbound["page"].resolver;
+      const dir = transitionState.directionType;
+
+      let resolved = false;
+      const resolve = () => {
+        if (!resolved) {
+          resolved = true;
+          resolver();
+        }
+      };
+
+      if (isTabSwitch(transitionState)) {
+        // Fade — tab switch
+        outDom.style.transition = `opacity ${fadeDuration}ms ease`;
+        outDom.style.opacity = "0";
+        outDom.addEventListener("transitionend", function te(e) {
+          if (e.propertyName !== "opacity") return;
+          outDom.removeEventListener("transitionend", te);
+          resolve();
+        });
+        setTimeout(resolve, fadeDuration + 100);
+      } else {
+        // Slide — drill down / back
+        const fromRight = dir === DirectionTypes.FORWARD || dir === DirectionTypes.INITIAL;
+        const inFrom = fromRight ? "100%" : "-100%";
+        const outTo = fromRight ? "-100%" : "100%";
+
+        inDom.style.transform = `translateX(${inFrom})`;
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          outDom.style.transition = `transform ${duration}ms ease`;
+          outDom.style.transform = `translateX(${outTo})`;
+          inDom.style.transition = `transform ${duration}ms ease`;
+          inDom.style.transform = "translateX(0)";
+
+          inDom.addEventListener("transitionend", function te(e) {
+            if (e.propertyName !== "transform") return;
+            inDom.removeEventListener("transitionend", te);
+            inDom.style.transition = "";
+            inDom.style.transform = "";
+            resolve();
+          });
+
+          setTimeout(resolve, duration + 100);
+        }));
+      }
+    }
+  });
+}
+
+
 //
 // Pure CSS animation — applies data-nav-anim attributes to both inbound
 // and outbound doms so @keyframes can target them.

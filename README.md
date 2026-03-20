@@ -24,7 +24,7 @@ customary mobile app page transition of sliding-out-left / sliding-in-right is a
 
 ```bash
 # pin to a specific version tag (recommended)
-npm install github:cavemansspa/m-dot-nav#v2.0.4
+npm install github:cavemansspa/m-dot-nav#v2.0.8
 ```
 
 ## Basic Usage
@@ -279,6 +279,40 @@ const Layout = createSlideLayout({duration: 300}); // duration in ms
 m.nav(document.body, "/home", routes, {layoutComponent: Layout});
 ```
 
+### `createMobileLayout(options?)`
+
+Combined layout for native mobile app navigation patterns — fades between top-level tab routes and slides for drill-down
+navigation within a tab. This matches the behavior of apps like Apple Music, Spotify, and most native iOS/Android apps.
+
+```js
+import {createMobileLayout} from "m-dot-nav";
+
+const Layout = createMobileLayout({
+  tabRoots: ["/library", "/browse", "/radio", "/search"],
+  duration: 280,   // slide duration in ms (default: 300)
+  fadeDuration: 160,   // fade duration for tab switches in ms (default: 180)
+});
+
+m.nav(document.body, "/library", routes, {layoutComponent: Layout});
+```
+
+**Tab switch** (tab root → tab root) → fade — teleporting to a new section  
+**Drill down / back** (all other navigations) → horizontal slide
+
+Tab root → tab root navigation fades. All other navigations slide horizontally. One-off `anim` overrides from `setRoute`
+still take priority — useful for sheet/modal patterns:
+
+```js
+// Tab switch — fades automatically
+m.nav.setRoute("/browse");
+
+// Drill-down — slides automatically
+m.nav.setRoute("/library/artist/a1");
+
+// Sheet — one-off override takes priority
+m.nav.setRoute("/now-playing", null, {}, slideUpAnim);
+```
+
 ### `createFadeLayout(options?)`
 
 Fades the outbound page out. The inbound page is visible underneath.
@@ -290,9 +324,6 @@ const Layout = createFadeLayout({duration: 200});
 ```
 
 ### `createCssNavLayout()`
-
-Pure CSS animation — sets `data-nav-anim="in|out"` and `data-direction` attributes on inbound and outbound doms. Waits
-for `animationend` before releasing the outbound DOM.
 
 ```js
 import {createCssNavLayout} from "m-dot-nav";
