@@ -2,6 +2,16 @@ import m from "mithril";
 import { createMobileLayout, DirectionTypes } from "m-dot-nav";
 import { artists, getArtist, getAlbum, getAlbumArtist, searchAll } from "./data.js";
 
+// ── Logger ────────────────────────────────────────────────────────────────────
+
+const LOG = true;
+const log = {
+  nav:    (...args) => LOG && console.log("%c[nav]",    "color:#ff6b35;font-weight:bold", ...args),
+  player: (...args) => LOG && console.log("%c[player]", "color:#a8e6cf;font-weight:bold", ...args),
+  anim:   (...args) => LOG && console.log("%c[anim]",   "color:#d4a5f5;font-weight:bold", ...args),
+  route:  (...args) => LOG && console.log("%c[route]",  "color:#7eb8f7;font-weight:bold", ...args),
+};
+
 // ── Player state ──────────────────────────────────────────────────────────────
 
 const Player = (() => {
@@ -12,6 +22,7 @@ const Player = (() => {
     get current() { return current; },
     get playing()  { return playing; },
     play(track, artist, album) {
+      log.player("play", track.title, artist.name);
       current = { track, artist, album };
       playing = true;
       m.redraw();
@@ -20,45 +31,60 @@ const Player = (() => {
   };
 })();
 
-// ── Slide up / down animations ────────────────────────────────────────────────
+// ── Now Playing Overlay ───────────────────────────────────────────────────────
+//
+// Now Playing is NOT a route — it's a fixed overlay that slides up over
+// whatever page is currently active. Opening/closing it doesn't touch
+// the history stack at all.
 
-function slideUpAnim(ts) {
-  const { inbound, outbound } = ts.context;
-  const inDom = inbound["page"].dom;
-  const resolver = outbound["page"].resolver;
-  let done = false;
-  const resolve = () => { if (!done) { done = true; resolver(); } };
-  inDom.style.transform = "translateY(100%)";
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    inDom.style.transition = "transform 320ms cubic-bezier(0.32,0.72,0,1)";
-    inDom.style.transform  = "translateY(0)";
-    inDom.addEventListener("transitionend", function te(e) {
+const NowPlayingOverlay = (() => {
+  let visible = false;
+  let _dom    = null;
+
+  function animateIn(dom) {
+    dom.style.transform = "translateY(100%)";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      dom.style.transition = "transform 320ms cubic-bezier(0.32,0.72,0,1)";
+      dom.style.transform  = "translateY(0)";
+      dom.addEventListener("transitionend", function te(e) {
+        if (e.propertyName !== "transform") return;
+        dom.removeEventListener("transitionend", te);
+        dom.style.transition = "";
+      });
+    }));
+  }
+
+  function animateOut(dom, done) {
+    dom.style.transition = "transform 320ms cubic-bezier(0.32,0.72,0,1)";
+    dom.style.transform  = "translateY(100%)";
+    dom.addEventListener("transitionend", function te(e) {
       if (e.propertyName !== "transform") return;
-      inDom.removeEventListener("transitionend", te);
-      inDom.style.transition = "";
-      inDom.style.transform  = "";
-      resolve();
+      dom.removeEventListener("transitionend", te);
+      done();
     });
-    setTimeout(resolve, 450);
-  }));
-}
+    setTimeout(done, 400); // safety fallback
+  }
 
-function slideDownAnim(ts) {
-  const { outbound } = ts.context;
-  const outDom   = outbound["page"].dom;
-  const resolver = outbound["page"].resolver;
-  let done = false;
-  const resolve = () => { if (!done) { done = true; resolver(); } };
-  outDom.style.transition = "transform 320ms cubic-bezier(0.32,0.72,0,1)";
-  outDom.style.transform  = "translateY(100%)";
-  outDom.style.zIndex     = "1";
-  outDom.addEventListener("transitionend", function te(e) {
-    if (e.propertyName !== "transform") return;
-    outDom.removeEventListener("transitionend", te);
-    resolve();
-  });
-  setTimeout(resolve, 450);
-}
+  return {
+    get visible() { return visible; },
+    open() {
+      visible = true;
+      m.redraw();
+    },
+    close() {
+      if (!_dom) { visible = false; m.redraw(); return; }
+      animateOut(_dom, () => {
+        visible = false;
+        m.redraw();
+      });
+    },
+    setDom(dom) { _dom = dom; },
+    onCreated(dom) {
+      _dom = dom;
+      animateIn(dom);
+    },
+  };
+})();
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 
@@ -88,7 +114,7 @@ function activeTab() {
 
 function isDeepRoute() {
   const r = m.route.get() ?? "";
-  return r.startsWith("/library/") || r.startsWith("/now-playing");
+  return r.startsWith("/library/");
 }
 
 // Scroll position restore for list views
@@ -96,16 +122,13 @@ const scrollStore = {};
 
 const AppLayout = {
   view({ attrs, children }) {
-    const ts  = attrs.transitionState;
-    const dir = ts?.directionType;
-    const route = m.route.get() ?? "";
-    const isNowPlaying = route.startsWith("/now-playing");
+    const ts   = attrs.transitionState;
     const deep = isDeepRoute();
 
     return m("div", { style: "height:100%; display:flex; flex-direction:column;" }, [
 
-      // Top nav bar — shows back button on deep routes
-      !isNowPlaying && m("div.top-nav", [
+      // Top nav
+      m("div.top-nav", [
         deep
           ? m("button.back-btn", { onclick: () => history.back() }, ["‹ ", "Back"])
           : m("div", { style: "font-family:'Syne',sans-serif; font-size:18px; font-weight:800; letter-spacing:-0.5px;" }, "Wavelength"),
@@ -117,16 +140,15 @@ const AppLayout = {
         m(MobileLayout, { transitionState: ts }, children),
       ]),
 
-      // Mini player — hidden on now-playing
-      !isNowPlaying && m("div.mini-player", {
+      // Mini player
+      m("div.mini-player", {
         class: !Player.current ? "hidden" : "",
-        // replace: true — Now Playing is transient, should never appear in history stack
-        // pressing back skips it and returns to the previous route
-        onclick: () => m.nav.setRoute("/now-playing", null, {replace: true}, slideUpAnim),
+        onclick: () => {
+          log.nav("mini-player tap");
+          NowPlayingOverlay.open();
+        },
       }, Player.current ? [
-        m("div.track-color", {
-          style: `background:${Player.current.artist.color}`
-        }, "♪"),
+        m("div.track-color", { style: `background:${Player.current.artist.color}` }, "♪"),
         m("div.track-info", [
           m("div.track-title", Player.current.track.title),
           m("div.track-artist", Player.current.artist.name),
@@ -141,8 +163,8 @@ const AppLayout = {
         ]),
       ] : null),
 
-      // Tab bar — hidden on now-playing
-      !isNowPlaying && m("div.tab-bar",
+      // Tab bar
+      m("div.tab-bar",
         tabs.map(tab =>
           m("button.tab-btn", {
             class: m.cls({ active: activeTab() === tab.id }),
@@ -153,6 +175,9 @@ const AppLayout = {
           ])
         )
       ),
+
+      // Now Playing overlay — fixed, slides up over everything
+      NowPlayingOverlay.visible && m(NowPlayingView),
     ]);
   }
 };
@@ -266,16 +291,23 @@ const AlbumDetail = {
   }
 };
 
-const NowPlaying = {
+// NowPlayingView — fixed overlay, not a route
+const NowPlayingView = {
+  oncreate({ dom }) {
+    NowPlayingOverlay.onCreated(dom);
+  },
   view() {
     const { track, artist, album } = Player.current ?? {};
-    if (!track) return m("div.page");
-    return m("div.page", { style: "background:var(--bg);" }, [
+    if (!track) return null;
+    return m("div", {
+      style: "position:absolute; inset:0; background:var(--bg); z-index:100; overflow:hidden;"
+    }, [
       m("div.now-playing-page", [
         m("button.np-close", {
-          // replace: true — Now Playing is transient, should never appear in history stack
-          // pressing back skips it and returns to the previous route
-          onclick: () => m.nav.setRoute(`/library/album/${album.id}`, null, {replace: true}, slideDownAnim)
+          onclick: () => {
+            log.nav("now-playing close");
+            NowPlayingOverlay.close();
+          }
         }, "⌄"),
         m("div.np-art", { style: `background:${artist.color}20; color:${artist.color}` }, "⬡"),
         m("div.np-info", [
@@ -446,7 +478,7 @@ const Search = (() => {
             ),
           ],
           !results.artists.length && !results.albums.length && !results.tracks.length &&
-            m("div.empty-state", [m("div.icon", "⌕"), m("div", `No results for "${query}"`)]),
+          m("div.empty-state", [m("div.icon", "⌕"), m("div", `No results for "${query}"`)]),
         ],
       ]);
     }
@@ -459,7 +491,6 @@ m.nav(document.getElementById("app"), "/library", {
   "/library":                Library,
   "/library/artist/:id":     ArtistDetail,
   "/library/album/:id":      AlbumDetail,
-  "/now-playing":            NowPlaying,
   "/browse":                 Browse,
   "/radio":                  Radio,
   "/search":                 Search,
