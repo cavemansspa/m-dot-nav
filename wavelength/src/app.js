@@ -120,7 +120,9 @@ const AppLayout = {
       // Mini player — hidden on now-playing
       !isNowPlaying && m("div.mini-player", {
         class: !Player.current ? "hidden" : "",
-        onclick: () => m.nav.setRoute("/now-playing", null, {}, slideUpAnim),
+        // replace: true — Now Playing is transient, should never appear in history stack
+        // pressing back skips it and returns to the previous route
+        onclick: () => m.nav.setRoute("/now-playing", null, {replace: true}, slideUpAnim),
       }, Player.current ? [
         m("div.track-color", {
           style: `background:${Player.current.artist.color}`
@@ -271,7 +273,9 @@ const NowPlaying = {
     return m("div.page", { style: "background:var(--bg);" }, [
       m("div.now-playing-page", [
         m("button.np-close", {
-          onclick: () => m.nav.setRoute(`/library/album/${album.id}`, null, {}, slideDownAnim)
+          // replace: true — Now Playing is transient, should never appear in history stack
+          // pressing back skips it and returns to the previous route
+          onclick: () => m.nav.setRoute(`/library/album/${album.id}`, null, {replace: true}, slideDownAnim)
         }, "⌄"),
         m("div.np-art", { style: `background:${artist.color}20; color:${artist.color}` }, "⬡"),
         m("div.np-info", [
