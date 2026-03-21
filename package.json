@@ -17,7 +17,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "demo": "vite --config vite.demo.config.js"
+    "demo": "vite --config vite.demo.config.js",
+    "wavelength": "vite --config vite.wavelength.config.js --port 4300"
   },
   "devDependencies": {
     "vite": "^5.0.0"
