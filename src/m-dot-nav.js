@@ -506,7 +506,7 @@ export default m.nav;
 //   });
 
 export function createNavLayout(hooks = {}) {
-  const {animate} = hooks;
+  const {animate, overlay} = hooks    // ← add overlay
 
   return function NavLayout() {
 
@@ -549,8 +549,13 @@ export function createNavLayout(hooks = {}) {
         }
 
         return m("div", {
-          style: "display:grid; overflow:hidden; height:100%; width:100%;"
-        }, [m(Page, {key: this._key}, children)]);
+            style: "display:grid; overflow:hidden; height:100%; width:100%;"
+          }, [
+            m(Page, {key: this._key}, children),
+            overlay && overlay()
+          ]
+            .filter(Boolean)
+        );
       },
 
       oncreate({attrs}) {
@@ -599,8 +604,10 @@ export function createNavLayout(hooks = {}) {
 
 export function createFadeLayout(options = {}) {
   const duration = options.duration ?? 200;
+  const overlay = options.overlay
 
   return createNavLayout({
+    overlay,
     animate(transitionState) {
       const {outbound} = transitionState.context;
       const outDom = outbound["page"].dom;
@@ -627,8 +634,10 @@ export function createFadeLayout(options = {}) {
 
 export function createSlideLayout(options = {}) {
   const duration = options.duration ?? 300;
+  const overlay = options.overlay
 
   return createNavLayout({
+    overlay,
     animate(transitionState) {
       const {outbound, inbound} = transitionState.context;
       const outDom = outbound["page"].dom;
@@ -689,6 +698,7 @@ export function createMobileLayout(options = {}) {
   const tabRoots = options.tabRoots ?? [];
   const duration = options.duration ?? 300;
   const fadeDuration = options.fadeDuration ?? 180;
+  const overlay = options.overlay
 
   function isTabSwitch(transitionState) {
     const inRoute = transitionState.rcState?.onmatchParams?.route;
@@ -697,6 +707,7 @@ export function createMobileLayout(options = {}) {
   }
 
   return createNavLayout({
+    overlay,
     animate(transitionState) {
       const {outbound, inbound} = transitionState.context;
       const outDom = outbound["page"].dom;
