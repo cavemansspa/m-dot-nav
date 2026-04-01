@@ -1,0 +1,384 @@
+import y from "mithril";
+/*! m-dot-nav v2.0.12 | MIT */
+function k(e, n, r = () => {
+}) {
+  let o = n, t = {};
+  function u(s, i) {
+    o = s, t = { ...t, ...i }, r(o, t);
+    const a = e[o];
+    a != null && a.invoke && a.invoke(t).then(() => u(a.onDone ?? o, {})).catch(() => u(a.onError ?? o, {}));
+  }
+  return {
+    get current() {
+      return o;
+    },
+    get context() {
+      return t;
+    },
+    send(s, i = {}) {
+      var c, d;
+      const a = (d = (c = e[o]) == null ? void 0 : c.on) == null ? void 0 : d[s];
+      a && u(a, i);
+    }
+  };
+}
+const f = {
+  INITIAL: "INITIAL",
+  FORWARD: "FORWARD",
+  BACK: "BACK",
+  SAME_ROUTE: "SAME_ROUTE",
+  SAME_ROUTE_CHANGE: "SAME_ROUTE_CHANGE",
+  EXISTING_ROUTE: "EXISTING_ROUTE",
+  REDRAW: "REDRAW"
+};
+y.cls = (e, n = " ") => {
+  let r;
+  for (const o in e)
+    e[o] && (r = r == null ? o : r + n + o);
+  return r || "";
+};
+function w() {
+  return (Math.random() * Math.pow(10, 16)).toFixed(0);
+}
+function b(e) {
+  return e == null || typeof e != "object" ? JSON.stringify(e) : Array.isArray(e) ? "[" + e.map(b).join(",") + "]" : "{" + Object.keys(e).sort().map((r) => JSON.stringify(r) + ":" + b(e[r])).join(",") + "}";
+}
+function C(e, n) {
+  if (e === n) return !0;
+  if (e == null || n == null || typeof e != typeof n || typeof e != "object") return !1;
+  const r = Object.keys(e), o = Object.keys(n);
+  return r.length !== o.length ? !1 : r.every((t) => C(e[t], n[t]));
+}
+function I(e, n = "") {
+  return Object.keys(e).reduce((r, o) => {
+    const t = e[o];
+    return typeof t == "function" || t.view || t.onmatch || t.render ? { ...r, [n + o]: t } : { ...r, ...I(t, n + o) };
+  }, {});
+}
+function F(e) {
+  const { route: n, params: r, args: o } = e;
+  return b({ route: n, params: r, args: o });
+}
+function D(e, n) {
+  if (typeof (e == null ? void 0 : e.getIdentity) == "function") {
+    const r = e.getIdentity(n);
+    return typeof r == "string" ? r : b(r);
+  }
+  return F(n);
+}
+function U(e, n) {
+  return I(e)[n];
+}
+function L(e, n) {
+  const r = JSON.parse(JSON.stringify(e)), o = w();
+  return Object.freeze({
+    get onmatchParams() {
+      return r;
+    },
+    get identity() {
+      return n;
+    },
+    key() {
+      return o;
+    }
+  });
+}
+function W() {
+  let e = [], n = -1;
+  return {
+    get current() {
+      return e[n] ?? null;
+    },
+    get length() {
+      return e.length;
+    },
+    get index() {
+      return n;
+    },
+    findExisting(r) {
+      const o = e.findIndex((t) => t.identity === r);
+      return o >= 0 ? { entry: e[o], index: o } : null;
+    },
+    push(r) {
+      e = e.slice(0, n + 1), e.push(r), n = e.length - 1;
+    },
+    moveTo(r) {
+      n = r;
+    },
+    replaceCurrent(r) {
+      e[n] = r;
+    }
+  };
+}
+function j(e, n, r) {
+  const o = L(n, r);
+  if (e.length === 0)
+    return e.push(o), { directionType: f.INITIAL, rcState: o };
+  const t = e.findExisting(r);
+  if (t) {
+    const s = t.index - e.index, i = e.current;
+    return e.moveTo(t.index), s === 0 ? {
+      directionType: !C(t.entry.onmatchParams, n) ? f.SAME_ROUTE_CHANGE : f.SAME_ROUTE,
+      rcState: t.entry
+    } : s === -1 ? { directionType: f.BACK, rcState: t.entry, prevRcState: i } : s === 1 ? { directionType: f.FORWARD, rcState: t.entry, prevRcState: i } : { directionType: f.EXISTING_ROUTE, rcState: t.entry, prevRcState: i, delta: s };
+  }
+  const u = e.current;
+  return e.push(o), { directionType: f.FORWARD, rcState: o, prevRcState: u };
+}
+function P(e) {
+  return k(
+    {
+      idle: {
+        on: { ONMATCH: "matching" }
+      },
+      matching: {
+        on: {
+          // Second ONMATCH before render = redirect inside user's onmatch.
+          // Roll back the speculative history push before re-entering.
+          ONMATCH: "matching",
+          RENDER: "idle"
+        }
+      }
+    },
+    "idle"
+  );
+}
+function G(e) {
+  const n = I(e.routes);
+  return e.resolvers = Object.keys(n).reduce((r, o) => {
+    const t = n[o], u = e.router, s = {
+      onmatch(i, a, c) {
+        u.current === "matching" && e.history.moveTo(e.history.index - 1);
+        const m = e.history.current;
+        let l;
+        const { path: h, params: v } = y.parsePathname(a), g = { args: i, params: v, path: h, requestedPath: a, route: c }, E = D(t, g);
+        let A = j(e.history, g, E);
+        A.context = {};
+        const S = { onmatchParams: g }, T = m && e.resolvers[m.onmatchParams.route];
+        T != null && T.onbeforeroutechange && T.onbeforeroutechange({ inbound: S, outbound: m, requestedPath: a });
+        const { directionType: R } = A, _ = {
+          directionType: R,
+          isForward: R === f.FORWARD || R === f.INITIAL,
+          isBack: R === f.BACK || R === f.EXISTING_ROUTE,
+          isSameRoute: R === f.SAME_ROUTE,
+          isSameRouteChange: R === f.SAME_ROUTE_CHANGE
+        };
+        if (t.onmatch && (l = t.onmatch(i, a, c, _)), l || (l = t), e.replacingState) {
+          e.replacingState = !1;
+          const x = e.history;
+          x.moveTo(x.index - 1), x.push(L(g, E));
+        }
+        e.events.dispatchEvent(new CustomEvent("onbeforeroutechange", {
+          cancelable: !0,
+          detail: { transitionState: A, inbound: S, outbound: m }
+        }));
+        const M = e.pendingAnim;
+        return e.pendingAnim = void 0, u.send("ONMATCH", {
+          transitionState: A,
+          resolvedComponent: l,
+          anim: M
+        }), l;
+      },
+      render(i) {
+        const { layoutComponent: a } = e, { transitionState: c, anim: d } = u.context, m = u.current === "idle" ? { ...c, directionType: f.REDRAW } : c;
+        if (d && (m.anim = d), u.send("RENDER"), i.attrs.transitionState = m, !t.render)
+          return y(
+            a,
+            { transitionState: m },
+            y(u.context.resolvedComponent ?? t, i.attrs)
+          );
+        const l = t.render(i);
+        return l.tag === a ? (l.attrs.transitionState = m, l) : l.items ? y(a, {
+          cls: l.cls,
+          layout: l.layout,
+          items: l.items,
+          transitionState: m
+        }) : y(a, { transitionState: m }, l);
+      }
+    };
+    return t.onbeforeroutechange && (s.onbeforeroutechange = t.onbeforeroutechange), r[o] = s, r;
+  }, {}), e.resolvers;
+}
+const p = {
+  routes: void 0,
+  layoutComponent: void 0,
+  resolvers: void 0,
+  history: W(),
+  router: null,
+  // set at init time (needs history)
+  events: new EventTarget(),
+  pendingAnim: void 0,
+  replacingState: !1
+  // setRoute→onmatch handoff flag
+}, N = y.route.set;
+y.route.set = (e, n, r) => y.nav.setRoute(e, n, r);
+y.nav = function(n, r, o, t) {
+  if (!o) throw new Error("m.nav() — routes is required.");
+  if (!(t != null && t.layoutComponent)) throw new Error("m.nav() — layoutComponent is required.");
+  p.routes = o, p.layoutComponent = t.layoutComponent, p.router = P(), G(p), y.route(n ?? document.body, r, p.resolvers);
+};
+Object.assign(y.nav, {
+  setRoute(e, n, r = {}, o) {
+    const t = y.buildPathname(e, n), { path: u, params: s } = y.parsePathname(t), i = {
+      args: s ?? {},
+      params: s ?? {},
+      path: u,
+      requestedPath: t,
+      route: e
+    }, a = U(p.routes, e), c = D(a, i), d = p.history.findExisting(c);
+    if (p.pendingAnim = o, d && d.index === p.history.index) {
+      N(e, n, { ...r, replace: !0 });
+      return;
+    }
+    if (d) {
+      const m = d.index - p.history.index;
+      if (m < 0) {
+        window.history.go(m);
+        return;
+      }
+    }
+    r.replace === !0 && (p.replacingState = !0), N(e, n, r);
+  },
+  addEventListener: p.events.addEventListener.bind(p.events),
+  removeEventListener: p.events.removeEventListener.bind(p.events),
+  debug() {
+    var e;
+    return { ...p, routerState: (e = p.router) == null ? void 0 : e.current };
+  }
+});
+const $ = y.nav;
+function O(e = {}) {
+  const { animate: n, overlay: r } = e;
+  return function() {
+    let t = {
+      inbound: {},
+      outbound: {}
+    };
+    function u() {
+      return {
+        view({ attrs: s, children: i }) {
+          return y("div", {
+            "data-page-key": s.key,
+            style: "grid-area:1/1; height:100%; overflow:hidden;"
+          }, i);
+        },
+        oncreate({ dom: s }) {
+          t.inbound.page = { dom: s };
+        },
+        onbeforeremove({ dom: s }) {
+          return new Promise((i) => {
+            t.outbound.page = { dom: s, resolver: i };
+          });
+        }
+      };
+    }
+    return {
+      view({ attrs: s, children: i }) {
+        const { transitionState: a } = s, c = a == null ? void 0 : a.directionType;
+        return c !== f.REDRAW && c !== f.SAME_ROUTE && (this._key = a.rcState.key()), y(
+          "div",
+          {
+            style: "display:grid; overflow:hidden; height:100%; width:100%;"
+          },
+          [
+            y(u, { key: this._key }, i),
+            r && r()
+          ].filter(Boolean)
+        );
+      },
+      oncreate({ attrs: s }) {
+        s.transitionState.context = t;
+      },
+      onupdate({ attrs: s }) {
+        const { transitionState: i } = s, a = i == null ? void 0 : i.directionType;
+        a === f.REDRAW || a === f.SAME_ROUTE || a === f.SAME_ROUTE_CHANGE || (i.context = t, Promise.resolve().then(() => {
+          var l;
+          const { outbound: c, inbound: d } = t;
+          if (!((l = c.page) != null && l.dom)) return;
+          const m = i.anim ?? n;
+          m ? m(i) : c.page.resolver(), t.outbound = {}, t.inbound = {};
+        }));
+      }
+    };
+  };
+}
+function H(e = {}) {
+  const n = e.duration ?? 200, r = e.overlay;
+  return O({
+    overlay: r,
+    animate(o) {
+      const { outbound: t } = o.context, u = t.page.dom, s = t.page.resolver;
+      u.style.transition = `opacity ${n}ms ease`, u.style.opacity = "0", u.addEventListener("transitionend", function i(a) {
+        a.propertyName === "opacity" && (u.removeEventListener("transitionend", i), s());
+      }), setTimeout(s, n + 100);
+    }
+  });
+}
+function B(e = {}) {
+  const n = e.duration ?? 300, r = e.overlay;
+  return O({
+    overlay: r,
+    animate(o) {
+      const { outbound: t, inbound: u } = o.context, s = t.page.dom, i = u.page.dom, a = t.page.resolver, c = o.directionType, d = c === f.FORWARD || c === f.INITIAL, m = d ? "100%" : "-100%", l = d ? "-100%" : "100%";
+      let h = !1;
+      const v = () => {
+        h || (h = !0, a());
+      };
+      i.style.transform = `translateX(${m})`, requestAnimationFrame(() => requestAnimationFrame(() => {
+        s.style.transition = `transform ${n}ms ease`, s.style.transform = `translateX(${l})`, i.style.transition = `transform ${n}ms ease`, i.style.transform = "translateX(0)", i.addEventListener("transitionend", function g(E) {
+          E.propertyName === "transform" && (i.removeEventListener("transitionend", g), i.style.transition = "", i.style.transform = "", v());
+        }), setTimeout(v, n + 100);
+      }));
+    }
+  });
+}
+function q(e = {}) {
+  const n = e.tabRoots ?? [], r = e.duration ?? 300, o = e.fadeDuration ?? 180, t = e.overlay;
+  function u(s) {
+    var c, d, m, l;
+    const i = (d = (c = s.rcState) == null ? void 0 : c.onmatchParams) == null ? void 0 : d.route, a = (l = (m = s.prevRcState) == null ? void 0 : m.onmatchParams) == null ? void 0 : l.route;
+    return n.includes(i) && n.includes(a);
+  }
+  return O({
+    overlay: t,
+    animate(s) {
+      const { outbound: i, inbound: a } = s.context, c = i.page.dom, d = a.page.dom, m = i.page.resolver, l = s.directionType;
+      let h = !1;
+      const v = () => {
+        h || (h = !0, m());
+      };
+      if (u(s))
+        c.style.transition = `opacity ${o}ms ease`, c.style.opacity = "0", c.addEventListener("transitionend", function g(E) {
+          E.propertyName === "opacity" && (c.removeEventListener("transitionend", g), v());
+        }), setTimeout(v, o + 100);
+      else {
+        const g = l === f.FORWARD || l === f.INITIAL, E = g ? "100%" : "-100%", A = g ? "-100%" : "100%";
+        d.style.transform = `translateX(${E})`, requestAnimationFrame(() => requestAnimationFrame(() => {
+          c.style.transition = `transform ${r}ms ease`, c.style.transform = `translateX(${A})`, d.style.transition = `transform ${r}ms ease`, d.style.transform = "translateX(0)", d.addEventListener("transitionend", function S(T) {
+            T.propertyName === "transform" && (d.removeEventListener("transitionend", S), d.style.transition = "", d.style.transform = "", v());
+          }), setTimeout(v, r + 100);
+        }));
+      }
+    }
+  });
+}
+function J() {
+  return O({
+    animate(e) {
+      const { outbound: n, inbound: r } = e.context, o = n.page.dom, t = r.page.dom, u = n.page.resolver, s = e.directionType;
+      o.setAttribute("data-nav-anim", "out"), o.setAttribute("data-direction", s), t.setAttribute("data-nav-anim", "in"), t.setAttribute("data-direction", s), o.addEventListener("animationend", function i() {
+        o.removeEventListener("animationend", i), u();
+      }), setTimeout(u, 600);
+    }
+  });
+}
+export {
+  f as DirectionTypes,
+  L as RouteChangeState,
+  J as createCssNavLayout,
+  H as createFadeLayout,
+  q as createMobileLayout,
+  O as createNavLayout,
+  B as createSlideLayout,
+  $ as default
+};
