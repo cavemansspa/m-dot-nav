@@ -171,6 +171,10 @@ function createHistoryStack() {
       return currentIndex;
     },
 
+    get stack() {
+      return stack;
+    },
+
     findExisting(identity) {
       const idx = stack.findIndex(e => e.identity === identity);
       return idx >= 0 ? {entry: stack[idx], index: idx} : null;
@@ -180,6 +184,10 @@ function createHistoryStack() {
       stack = stack.slice(0, currentIndex + 1);
       stack.push(rcState);
       currentIndex = stack.length - 1;
+    },
+
+    truncateForward() {
+      stack = stack.slice(0, currentIndex + 1);
     },
 
     moveTo(index) {
@@ -464,6 +472,11 @@ Object.assign(m.nav, {
       if (delta < 0) {
         window.history.go(delta);
         return;
+      }
+      // delta > 0: stale forward history — truncate so resolveTransition pushes a
+      // fresh entry that stays in sync with the new browser pushState below.
+      if (delta > 0) {
+        _state.history.truncateForward();
       }
     }
 
