@@ -327,12 +327,13 @@ function buildRouteResolvers(navstate) {
         }
         if (!resolvedComponent) resolvedComponent = userRoute;
 
-        // Handle replace: remove the entry being replaced
+        // Handle replace: overwrite the entry being replaced, drop the speculative forward push
         if (navstate.replacingState) {
           navstate.replacingState = false;
           const h = navstate.history;
           h.moveTo(h.index - 1);
-          h.push(RouteChangeState(onmatchParams, identity));
+          h.replaceCurrent(RouteChangeState(onmatchParams, identity));
+          h.truncateForward();
         }
 
         navstate.events.dispatchEvent(new CustomEvent("onbeforeroutechange", {
