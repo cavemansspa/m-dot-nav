@@ -447,7 +447,7 @@ Object.assign(m.nav, {
     const requestedPath = m.buildPathname(route, params);
     const {path, params: normalizedParams} = m.parsePathname(requestedPath);
     const onmatchParams = {
-      args: normalizedParams ?? {},
+      args: params ?? normalizedParams ?? {},
       params: normalizedParams ?? {},
       path,
       requestedPath,
