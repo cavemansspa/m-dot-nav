@@ -132,6 +132,28 @@ function getRouteDefForPath(routes, routePath) {
   return flattenRoutes(routes)[routePath];
 }
 
+// Matches a literal path (e.g. "/washingtontownship/news") against the route
+// patterns (e.g. "/:community/:tab") — segment by segment, definition order.
+// Needed because setRoute callers (and mithril's default-route redirect) may
+// pass literal paths; identity must be computed from the same pattern + args
+// that onmatch will use, or findExisting can never match.
+function matchPathToRoute(routes, path) {
+  const flat = flattenRoutes(routes);
+  const segs = path.split("/").filter(s => s !== "");
+  for (const pattern of Object.keys(flat)) {
+    const psegs = pattern.split("/").filter(s => s !== "");
+    if (psegs.length !== segs.length) continue;
+    const args = {};
+    let ok = true;
+    for (let i = 0; i < psegs.length; i++) {
+      if (psegs[i].startsWith(":")) args[psegs[i].slice(1)] = decodeURIComponent(segs[i]);
+      else if (psegs[i] !== segs[i]) { ok = false; break; }
+    }
+    if (ok) return {pattern, def: flat[pattern], args};
+  }
+  return null;
+}
+
 // ─── RouteChangeState ─────────────────────────────────────────────────────────
 //
 // Immutable snapshot of a resolved route. Stored on the history stack.
@@ -204,7 +226,7 @@ function createHistoryStack() {
 //
 // Pure function — derives direction and updates the history stack.
 
-function resolveTransition(history, onmatchParams, identity) {
+function resolveTransition(history, onmatchParams, identity, replacing = false) {
   const rcState = RouteChangeState(onmatchParams, identity);
 
   if (history.length === 0) {
@@ -235,6 +257,17 @@ function resolveTransition(history, onmatchParams, identity) {
   }
 
   const prev = history.current;
+  if (replacing) {
+    // replace: overwrite the current entry in place — the stack must not grow.
+    // After a rolled-back redirect the index is -1 and there is nothing to
+    // replace — push (which also truncates the rolled-back entry).
+    if (history.index < 0) {
+      history.push(rcState);
+    } else {
+      history.replaceCurrent(rcState);
+    }
+    return {directionType: DirectionTypes.FORWARD, rcState, prevRcState: prev};
+  }
   history.push(rcState);
   return {directionType: DirectionTypes.FORWARD, rcState, prevRcState: prev};
 }
@@ -297,7 +330,9 @@ function buildRouteResolvers(navstate) {
         const {path, params} = m.parsePathname(requestedPath);
         const onmatchParams = {args, params, path, requestedPath, route};
         const identity = getIdentityForRoute(userRoute, onmatchParams);
-        let transitionState = resolveTransition(navstate.history, onmatchParams, identity);
+        const replacing = navstate.replacingState;
+        navstate.replacingState = false;
+        let transitionState = resolveTransition(navstate.history, onmatchParams, identity, replacing);
         transitionState.context = {};
 
         // inbound is a plain object — no key generated, no spurious Page cycle
@@ -326,15 +361,6 @@ function buildRouteResolvers(navstate) {
           resolvedComponent = userRoute.onmatch(args, requestedPath, route, navContext);
         }
         if (!resolvedComponent) resolvedComponent = userRoute;
-
-        // Handle replace: overwrite the entry being replaced, drop the speculative forward push
-        if (navstate.replacingState) {
-          navstate.replacingState = false;
-          const h = navstate.history;
-          h.moveTo(h.index - 1);
-          h.replaceCurrent(RouteChangeState(onmatchParams, identity));
-          h.truncateForward();
-        }
 
         navstate.events.dispatchEvent(new CustomEvent("onbeforeroutechange", {
           cancelable: true,
@@ -446,14 +472,29 @@ Object.assign(m.nav, {
   setRoute(route, params, options = {}, anim) {
     const requestedPath = m.buildPathname(route, params);
     const {path, params: normalizedParams} = m.parsePathname(requestedPath);
+
+    // Literal paths (m.route.set('/foo/bar'), mithril's default-route redirect)
+    // must resolve to the same pattern + args that onmatch will compute, or the
+    // identity lookup below can never match.
+    let userRoute = getRouteDefForPath(_state.routes, route);
+    let identityRoute = route;
+    let identityArgs = params ?? normalizedParams ?? {};
+    if (!userRoute) {
+      const match = matchPathToRoute(_state.routes, path);
+      if (match) {
+        userRoute = match.def;
+        identityRoute = match.pattern;
+        identityArgs = {...match.args, ...normalizedParams};
+      }
+    }
+
     const onmatchParams = {
-      args: params ?? normalizedParams ?? {},
+      args: identityArgs,
       params: normalizedParams ?? {},
       path,
       requestedPath,
-      route,
+      route: identityRoute,
     };
-    const userRoute = getRouteDefForPath(_state.routes, route);
     const identity = getIdentityForRoute(userRoute, onmatchParams);
     const existing = _state.history.findExisting(identity);
 
