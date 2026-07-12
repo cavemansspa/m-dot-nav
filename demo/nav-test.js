@@ -487,6 +487,13 @@ m.nav.addEventListener("onbeforeroutechange", (e) => {
   Log.add("EVENT", `onbeforeroutechange — ${transitionState?.directionType}`);
 });
 
+// test hooks — used by test/nav.test.js
+window.__nav = m.nav;
+window.__dirs = [];
+m.nav.addEventListener("onbeforeroutechange", (e) => {
+  window.__dirs.push(e.detail.transitionState?.directionType);
+});
+
 m.nav(document.getElementById("app"), "/home", {
   "/home": Home,
   "/about": About,

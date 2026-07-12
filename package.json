@@ -18,9 +18,11 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "demo": "vite --config vite.demo.config.js",
-    "wavelength": "vite --config vite.wavelength.config.js --port 4300"
+    "wavelength": "vite --config vite.wavelength.config.js --port 4300",
+    "test": "node test/nav.test.mjs"
   },
   "devDependencies": {
+    "playwright": "^1.61.1",
     "vite": "^5.0.0"
   },
   "dependencies": {
