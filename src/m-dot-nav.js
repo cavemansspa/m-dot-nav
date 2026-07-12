@@ -226,7 +226,7 @@ function createHistoryStack() {
 //
 // Pure function — derives direction and updates the history stack.
 
-function resolveTransition(history, onmatchParams, identity, replacing = false) {
+function resolveTransition(history, onmatchParams, identity, replacing = false, rolledBack = false) {
   const rcState = RouteChangeState(onmatchParams, identity);
 
   if (history.length === 0) {
@@ -258,10 +258,11 @@ function resolveTransition(history, onmatchParams, identity, replacing = false) 
 
   const prev = history.current;
   if (replacing) {
-    // replace: overwrite the current entry in place — the stack must not grow.
-    // After a rolled-back redirect the index is -1 and there is nothing to
-    // replace — push (which also truncates the rolled-back entry).
-    if (history.index < 0) {
+    // replace: the stack must not grow. After a redirect rollback the entry
+    // being replaced is the rolled-back speculative one sitting at index+1 —
+    // push slices it off and lands the new entry in its slot. Otherwise
+    // overwrite the current entry in place.
+    if (rolledBack || history.index < 0) {
       history.push(rcState);
     } else {
       history.replaceCurrent(rcState);
@@ -332,7 +333,7 @@ function buildRouteResolvers(navstate) {
         const identity = getIdentityForRoute(userRoute, onmatchParams);
         const replacing = navstate.replacingState;
         navstate.replacingState = false;
-        let transitionState = resolveTransition(navstate.history, onmatchParams, identity, replacing);
+        let transitionState = resolveTransition(navstate.history, onmatchParams, identity, replacing, wasMatching);
         transitionState.context = {};
 
         // inbound is a plain object — no key generated, no spurious Page cycle
