@@ -183,6 +183,42 @@ const RedirectTest = {
   }
 };
 
+// Chained redirect: first hop is a replace (no stack push), second hop is a
+// plain push. Reproduces the redirect-rollback miscount from the code review —
+// moveTo(index - 1) assumes the immediately preceding cycle pushed, but a
+// replace-only cycle never advanced the index.
+// Multi-hop redirect chain: push-entered /chain-redirect replaces itself with
+// /chain-mid, which then redirects (push) to /chain-end. Reproduces the
+// redirect-rollback / double-notify bug from the code review — after the
+// second redirect's rollback, `outbound` can revert to an entry (the
+// original /list) already notified earlier in the same chain, not just the
+// immediately preceding one.
+const ChainRedirect = {
+  onmatch() {
+    m.nav.setRoute("/chain-mid", null, {replace: true});
+    return new Promise(() => {
+    });
+  }
+};
+
+const ChainMid = {
+  onmatch() {
+    m.nav.setRoute("/chain-end");
+    return new Promise(() => {
+    });
+  }
+};
+
+const ChainEnd = {
+  view() {
+    return m(".page", [
+      m("h1", "Chain End"),
+      m("p.label", "Demonstrates: replace-then-push redirect chain"),
+      m("p", "Reached via /chain-redirect → (replace) /chain-mid → (push) /chain-end."),
+    ]);
+  }
+};
+
 // ── Auth replace pattern ──────────────────────────────────────────────────────
 
 let isAuthed = false;
@@ -296,6 +332,7 @@ const List = (() => {
 
   return {
     onbeforeroutechange({inbound, outbound}) {
+      window.__listSaveCount = (window.__listSaveCount ?? 0) + 1;
       if (listDom) {
         scrollTop = listDom.scrollTop;
         Log.add("LIST", `saving scroll: ${scrollTop}px`);
@@ -499,6 +536,9 @@ m.nav(document.getElementById("app"), "/home", {
   "/about": About,
   "/item/:id": Item,
   "/redirect-test": RedirectTest,
+  "/chain-redirect": ChainRedirect,
+  "/chain-mid": ChainMid,
+  "/chain-end": ChainEnd,
   "/protected": Protected,
   "/login": Login,
   "/product/:id": Product,

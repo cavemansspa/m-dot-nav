@@ -144,6 +144,68 @@ async function t5_gatedDeepLink(browser) {
   await page.ctx.close();
 }
 
+async function t6_staleParamsOnSameRouteChange(browser) {
+  console.log("\nT6: SAME_ROUTE_CHANGE must update the stored history entry's params");
+  const page = await fresh(browser);
+
+  await go(page, "/product/42");
+  await go(page, "/product/:id", {id: 42, sort: "price"});
+  await go(page, "/product/:id", {id: 42, sort: "name"});
+
+  const storedSort = await page.evaluate(() => {
+    const entry = window.__nav.debug().history.stack.find(e => e.onmatchParams.route === "/product/:id");
+    return entry?.onmatchParams.params.sort ?? null;
+  });
+  check("stored history entry reflects latest sort param (currently stays stale)", storedSort, "name");
+  await page.ctx.close();
+}
+
+async function t7_redirectChainDoubleFire(browser) {
+  console.log("\nT7: multi-hop redirect chain must not double-fire the outbound route's onbeforeroutechange");
+  const page = await fresh(browser);
+
+  await go(page, "/list"); // establishes List as the outbound route with an onbeforeroutechange hook
+  await page.evaluate(() => { window.__listSaveCount = 0; });
+
+  // /chain-redirect --replace--> /chain-mid --push--> /chain-end
+  // After the second redirect's rollback, outbound reverts to /list again —
+  // a route already notified earlier in this same chain, not the one
+  // immediately before it.
+  await go(page, "/chain-redirect");
+  await page.waitForTimeout(300);
+
+  const saveCount = await page.evaluate(() => window.__listSaveCount);
+  check("List's onbeforeroutechange fires exactly once for one logical navigation (currently double-fires)", saveCount, 1);
+  await page.ctx.close();
+}
+
+async function t8_redirectChainStackIntegrity(browser) {
+  console.log("\nT8: multi-hop redirect chain must not leave speculative entries in the stack");
+  const page = await fresh(browser);
+
+  await go(page, "/list"); // stack [home, list], index 1
+
+  // /chain-redirect --replace--> /chain-mid --push--> /chain-end
+  // /chain-redirect is itself a plain push (speculative — a pass-through
+  // redirect, same as /redirect-test). Its onmatch immediately replaces it
+  // with /chain-mid, whose onmatch immediately pushes /chain-end. Both
+  // intermediate hops are speculative and should be rolled back, leaving
+  // only the real destination in the stack.
+  await go(page, "/chain-redirect");
+  await page.waitForTimeout(300);
+
+  const s = await snap(page);
+  check("landed on /chain-end", s.routes.at(s.index), "/chain-end");
+  check("no ghost /chain-redirect or /chain-mid entries", s.routes, ["/home", "/list", "/chain-end"]);
+  check("index at the end of a clean 3-entry stack", s.index, 2);
+
+  await page.goBack();
+  await page.waitForTimeout(500);
+  const sBack = await snap(page);
+  check("back from /chain-end returns cleanly to /list, skipping both intermediate hops", sBack.routes.at(sBack.index), "/list");
+  await page.ctx.close();
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 const server = await createServer({
@@ -163,6 +225,9 @@ try {
   await t3_revisitIsBack(browser);
   await t4_gatedRedirectMidSession(browser);
   await t5_gatedDeepLink(browser);
+  await t6_staleParamsOnSameRouteChange(browser);
+  await t7_redirectChainDoubleFire(browser);
+  await t8_redirectChainStackIntegrity(browser);
 } finally {
   await browser.close();
   await server.close();
