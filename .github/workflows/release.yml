@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Tag to release (e.g. v2.0.18)'
+        required: true
+        type: string
 
 jobs:
 
@@ -11,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -26,8 +34,8 @@ jobs:
           git config user.email "github-actions@github.com"
           git add -f dist/
           git diff --staged --quiet || git commit -m "chore: build dist [skip ci]"
-          git tag -f ${{ github.ref_name }}
-          git push origin ${{ github.ref_name }} --force
+          git tag -f ${{ inputs.ref || github.ref_name }}
+          git push origin ${{ inputs.ref || github.ref_name }} --force
 
   deploy-demo:
     needs: release
@@ -37,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ inputs.ref || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:

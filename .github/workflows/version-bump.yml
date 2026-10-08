@@ -1,0 +1,64 @@
+name: Version Bump
+
+# Replaces the manual `npm version patch && git push origin master && git push origin vX.Y.Z`
+# flow. Run from the Actions tab: this bumps package.json, commits and tags it,
+# pushes both to master, then hands off to release.yml (build + demo deploy)
+# directly via workflow_call — a tag pushed by GITHUB_TOKEN here would not
+# otherwise trigger release.yml's own `on: push: tags` listener.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm install
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm test
+
+      - name: Bump version
+        id: bump
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          npm version ${{ inputs.bump }} -m "%s"
+          echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Push commit and tag
+        run: |
+          git push origin master
+          git push origin ${{ steps.bump.outputs.tag }}
+
+  release:
+    needs: bump
+    uses: ./.github/workflows/release.yml
+    with:
+      ref: ${{ needs.bump.outputs.tag }}
+    permissions:
+      contents: write
