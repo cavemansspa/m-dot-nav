@@ -27,7 +27,7 @@ customary mobile app page transition of sliding-out-left / sliding-in-right is a
 
 ```bash
 # pin to a specific version tag (recommended) - check the repo's tags for the latest
-npm install github:cavemansspa/m-dot-nav#v2.0.17
+npm install github:cavemansspa/m-dot-nav#v2.0.18
 ```
 
 ## Basic Usage
