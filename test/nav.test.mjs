@@ -206,6 +206,23 @@ async function t8_redirectChainStackIntegrity(browser) {
   await page.ctx.close();
 }
 
+async function t9_sameRouteChangeKeepsPage(browser) {
+  console.log("\nT9: SAME_ROUTE_CHANGE must update the page in place — no second Page mounted, key unchanged");
+  const page = await fresh(browser);
+
+  await go(page, "/product/42");
+  await go(page, "/product/:id", {id: 42, sort: "price"});
+  const before = await page.evaluate(() => [...document.querySelectorAll("[data-page-key]")].map(e => e.dataset.pageKey));
+
+  await go(page, "/product/:id", {id: 42, sort: "name"});
+  await page.waitForTimeout(500); // longer than any transition — a stale outgoing Page would still be here
+  const after = await page.evaluate(() => [...document.querySelectorAll("[data-page-key]")].map(e => e.dataset.pageKey));
+
+  check("exactly one Page in the DOM after a same-route param change", after.length, 1);
+  check("the Page key is unchanged by a same-route param change", after, before);
+  await page.ctx.close();
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 const server = await createServer({
@@ -228,6 +245,7 @@ try {
   await t6_staleParamsOnSameRouteChange(browser);
   await t7_redirectChainDoubleFire(browser);
   await t8_redirectChainStackIntegrity(browser);
+  await t9_sameRouteChangeKeepsPage(browser);
 } finally {
   await browser.close();
   await server.close();

@@ -158,9 +158,8 @@ function matchPathToRoute(routes, path) {
 //
 // Immutable snapshot of a resolved route. Stored on the history stack.
 
-export function RouteChangeState(onmatchParams, identity) {
+export function RouteChangeState(onmatchParams, identity, key = genKey()) {
   const snapshot = JSON.parse(JSON.stringify(onmatchParams));
-  const key = genKey();
   return Object.freeze({
     get onmatchParams() {
       return snapshot;
@@ -248,15 +247,15 @@ function resolveTransition(history, onmatchParams, identity, replacing = false, 
         // Keep the stored entry in sync so later back/forward traversal and
         // debug() introspection reflect the params actually in effect here,
         // not the ones captured on the first visit to this identity.
-        history.replaceCurrent(rcState);
+        // The entry MUST keep its original key: the Page child is keyed by
+        // rcState.key(), so a new key here mounts a second Page and — since a
+        // same-route change runs no outgoing transition — the old one is never
+        // removed (it lingers on top and eats pointer events).
+        const updated = RouteChangeState(onmatchParams, identity, existing.entry.key());
+        history.replaceCurrent(updated);
+        return {directionType: DirectionTypes.SAME_ROUTE_CHANGE, rcState: updated, pushed: false};
       }
-      return {
-        directionType: paramsChanged
-          ? DirectionTypes.SAME_ROUTE_CHANGE
-          : DirectionTypes.SAME_ROUTE,
-        rcState: paramsChanged ? rcState : existing.entry,
-        pushed: false,
-      };
+      return {directionType: DirectionTypes.SAME_ROUTE, rcState: existing.entry, pushed: false};
     }
     if (delta === -1) return {directionType: DirectionTypes.BACK, rcState: existing.entry, prevRcState: prev, pushed: false};
     if (delta === 1) return {directionType: DirectionTypes.FORWARD, rcState: existing.entry, prevRcState: prev, pushed: false};
